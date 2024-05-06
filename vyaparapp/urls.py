@@ -135,7 +135,9 @@ urlpatterns = [
     path('import_statement_from_excel/<int:pk>',views.import_statement_from_excel,name='import_statement_from_excel'),
     path('transaction_history/<int:pk>/<int:bank_id>',views.transaction_history,name='transaction_history'),
     path('bank_transaction_statement/<int:bank_id>',views.bank_transaction_statement,name='bank_transaction_statement'),
-    
+    path('purchasebill_checkgstin',views.purchasebill_checkgstin,name='purchasebill_checkgstin'),
+    path('purchasebill_checkgphn',views.purchasebill_checkgphn,name='purchasebill_checkgphn'),
+
     # ========================================   ASHIKH V U (END) ======================================================
     
     #______________Parties(new)_________________Antony Tom___________________________
