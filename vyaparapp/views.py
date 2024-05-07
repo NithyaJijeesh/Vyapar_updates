@@ -573,71 +573,62 @@ def item_create(request):
 
 # @login_required(login_url='login')
 def items_list(request,pk):
-  # try:
-  sid = request.session.get('staff_id')
-  staff =  staff_details.objects.get(id=sid)
-  cmp = company.objects.get(id=staff.company.id)
+  try:
+    sid = request.session.get('staff_id')
+    staff =  staff_details.objects.get(id=sid)
+    cmp = company.objects.get(id=staff.company.id)
 
-  all_items = ItemModel.objects.filter(company=cmp) #updated - shemeem
+    all_items = ItemModel.objects.filter(company=cmp) #updated - shemeem
 
-  if pk == 0:
-    first_item = all_items.filter().first()
-  elif pk != 0:
-    first_item = all_items.get(id=pk)
+    if pk == 0:
+      first_item = all_items.filter().first()
+    elif pk != 0:
+      first_item = all_items.get(id=pk)
 
-  item_history= Item_History.objects.filter(
-    Item= first_item,
-    company=cmp
-  ).values('Item', 'action' , 'staff__first_name' , 'staff__last_name').last()
+    item_history= Item_History.objects.filter(
+      Item= first_item,
+      company=cmp
+    ).values('Item', 'action' , 'staff__first_name' , 'staff__last_name').last()
 
-  allmodules= modules_list.objects.get(company=staff.company,status='New')
-  transactions = None
-  # transactions = TransactionModel.objects.filter(user=request.user.id,item=first_item.id).order_by('-trans_created_date')
-  if first_item:
-    transactions = TransactionModel.objects.filter(company = cmp,item=first_item.id).order_by('-trans_created_date')
+    allmodules= modules_list.objects.get(company=staff.company,status='New')
+    transactions = None
+    # transactions = TransactionModel.objects.filter(user=request.user.id,item=first_item.id).order_by('-trans_created_date')
+    if first_item:
+      transactions = TransactionModel.objects.filter(company = cmp,item=first_item.id).order_by('-trans_created_date')
 
-  models_to_check1 = [CreditNoteItem, PurchaseBillItem, purchasedebit1, PurchaseOrderItem]
-  models_to_check2 = [SalesInvoiceItem,Estimate_items, DeliveryChallanItems]
-  model_queries = defaultdict(list)
-  model_display_names = {
-      "<class 'vyaparapp.models.Estimate_items'>": "estimate",
-      "<class 'vyaparapp.models.CreditNoteItem'>": "credit note",
-      "<class 'vyaparapp.models.PurchaseBillItem'>": "purchase bills",
-      "<class 'vyaparapp.models.purchasedebit1'>": "debit note",
-      "<class 'vyaparapp.models.PurchaseOrderItem'>": "purchase order",
-      "<class 'vyaparapp.models.SalesInvoiceItem'>": "invoice",
-      "<class 'vyaparapp.models.DeliveryChallanItems'>": "delivery challan",
-  }
-  for model in models_to_check1:
-      if model.objects.filter(company=staff.company.id, product=first_item.id).exists():
-          model_queries[model_display_names.get(str(model), str(model))].append(model.objects.filter(company=staff.company.id, product=first_item.id))
+    models_to_check1 = [CreditNoteItem, PurchaseBillItem, purchasedebit1, PurchaseOrderItem]
+    models_to_check2 = [SalesInvoiceItem,Estimate_items, DeliveryChallanItems]
+    model_queries = {}
 
-  # Check conditions for models_to_check2
-  for model in models_to_check2:
-      if model.objects.filter(company=staff.company.id, item=first_item.id).exists():
-          model_queries[model_display_names.get(str(model), str(model))].append(model.objects.filter(company=staff.company.id, item=first_item.id))
-  sales_orders = sales_item.objects.filter(cmp = staff.company.id, product = first_item.id)
+    for model in models_to_check1:
+        if model.objects.filter(company=staff.company.id, product=first_item.id).exists():
+            model_queries[model.__name__] = model.objects.filter(company=staff.company.id, product=first_item.id)
 
-  print(model_queries)
-  print(sales_orders)
+    for model in models_to_check2:
+        if model.objects.filter(company=staff.company.id, item=first_item.id).exists():
+            model_queries[model.__name__] = model.objects.filter(company=staff.company.id, item=first_item.id)
 
-  context = {
-    'first_item':first_item,
-    'transactions':transactions,
-    'company':cmp, 
-    'staff':staff, 
-    'allmodules' : allmodules, 
-    'all_items' : all_items , 
-    'Item_History' : item_history,
-    'sales_orders' : sales_orders,
-    "model_queries": model_queries,
-  }
+    sales_orders = sales_item.objects.filter(cmp=staff.company.id, product=first_item.id)
 
-  if all_items == None or all_items == '' or first_item == None or first_item == '' or transactions == None or transactions == '':
+
+    context = {
+      'first_item':first_item,
+      'transactions':transactions,
+      'company':cmp, 
+      'staff':staff, 
+      'allmodules' : allmodules, 
+      'all_items' : all_items , 
+      'Item_History' : item_history,
+      'sales_orders' : sales_orders,
+      "model_queries": model_queries,
+      
+    }
+
+    if all_items == None or all_items == '' or first_item == None or first_item == '' or transactions == None or transactions == '':
+      return render(request,'company/items_create_first_item.html', context)
+    return render(request,'company/items_list.html',context)
+  except:
     return render(request,'company/items_create_first_item.html', context)
-  return render(request,'company/items_list.html',context)
-  # except:
-  #   return render(request,'company/items_create_first_item.html', context)
 
 # @login_required(login_url='login')
 def item_create_new(request):
@@ -5238,6 +5229,53 @@ def view_parties(request,pk):
       getparty = party.objects.get(company=staff.company.id, id=pk)
   allmodules= modules_list.objects.get(company=staff.company,status='New')
 
+
+  models_to_check1 = [PurchaseBill, PurchaseOrder, SalesInvoice, purchasedebit, PaymentOut,PaymentIn, CreditNote]
+  models_to_check2 = [Estimate, DeliveryChallan]
+
+  history_models_to_check1 = {'PurchaseBill' : PurchaseBillTransactionHistory, 'PurchaseOrder' : PurchaseOrderTransactionHistory, 
+                              'SalesInvoice' : SalesInvoiceTransactionHistory, 'purchasedebit' : DebitnoteTransactionHistory, 
+                              'PaymentOut' : PaymentOutHistory,'PaymentIn' : PaymentInTransactionHistory, 
+                              'CreditNote' : CreditNoteTransactionHistory, 'Estimate' : EstimateTransactionHistory, 
+                              'DeliveryChallan' : DeliveryChallanTransactionHistory}
+
+  model_queries = {}
+
+  for model in models_to_check1:
+    if model.objects.filter(company=staff.company.id, party=getparty).exists():
+      model_queries[model.__name__] = model.objects.filter(company=staff.company.id, party=getparty)
+
+      for history_model_name, history_model in history_models_to_check1:
+        if model.__name__ == history_model_name:
+            
+            history_query = history_model.objects.filter(
+                Q(purchasebill__in=model_queries[model.__name__]) |
+                Q(purchaseorder__in=model_queries[model.__name__]) |
+                Q(salesinvoice__in=model_queries[model.__name__]) |
+                Q(debitnote__in=model_queries[model.__name__]) |
+                Q(creditnote__in=model_queries[model.__name__]) |
+                Q(paymentout__in=model_queries[model.__name__]) |
+                Q(payment__in=model_queries[model.__name__]) 
+            )
+
+            model_queries[model.__name__+'_history'] = history_query
+  print(model_queries[model.__name__+'_history'])
+  for model in models_to_check2:
+    if model.objects.filter(company=staff.company.id, party_name=getparty.party_name).exists():
+        model_queries[model.__name__] = model.objects.filter(company=staff.company.id, party_name=getparty.party_name)
+        for history_model in history_models_to_check1:
+          if history_model:
+            # history_query = history_model.objects.filter(
+            #       Q(estimate__in=model_queries[model.__name__]) |
+            #       Q(challan__in=model_queries[model.__name__]) 
+            # )
+            # model_queries[model.__name__+'_history'] = history_query
+            pass      
+  expenses = Expense.objects.filter(staff_id = staff, party_id = getparty).values()
+  sales_orders = salesorder.objects.filter(comp = staff.company.id, party = getparty).values()
+  
+
+  
   party_histories= party_history.objects.filter(
     party=getparty,
     company=staff.company
@@ -5249,6 +5287,9 @@ def view_parties(request,pk):
               'Party':Party, 
               'getparty' : getparty, 
               'party_history' : party_histories,
+              'model_queries' :model_queries,
+              'expenses' : expenses,
+              'sales_orders' : sales_orders,
              }
   return render(request, 'company/view_parties.html',context)
 
