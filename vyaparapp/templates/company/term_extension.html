@@ -49,9 +49,8 @@
                         <div class="col-sm-12 col-md-9 pb-4" >
                             <div class="row">
                                 <div class="col-md-8">
-                                    <label class="col-form-label mt-4 text-uppercase" style="color: black;">current Payment Term</label>
-                                    <input type="text" value="{% if staff.company.dateperiod %}{{staff.company.dateperiod.payment_terms_number}}
-                                    {{staff.company.dateperiod.payment_terms_value}} {% else %} 1 Month Trial {% endif %}"
+                                    <label class="col-form-label mt-4 text-uppercase" style="color: black;">Current Payment Term</label>
+                                    <input type="text" value="{% if staff.company.dateperiod %}{{staff.company.dateperiod.payment_terms_number}}   {{staff.company.dateperiod.payment_terms_value}} {% else %} 1 Month Trial {% endif %}"
                                     style=" border: 1px solid gray; border-radius: 8px; font-weight: 500;width: 90%;margin-left: 20px;padding: 8px;margin-bottom: 10px;" readonly> <br>
                                 </div>
                             </div>

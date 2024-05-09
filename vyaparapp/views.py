@@ -388,6 +388,25 @@ def admin_notification(request):
   
   return render(request,'admin/admin_notification.html',{'data':data}) 
 
+def updates_admin(request):
+  term_data= Admin_Notification.objects.filter(status='New',
+                                          Modules_List__isnull=False,
+                                          PaymentTerms_updation__isnull=False,).first()
+  pay = Admin_Notification.objects.filter(status='New',
+                                          Modules_List__isnull=True,
+                                          PaymentTerms_updation__isnull=False,).first()
+  mod = Admin_Notification.objects.filter(status='New',
+                                          Modules_List__isnull=False,
+                                          PaymentTerms_updation__isnull=True,).first()
+  print(term_data)
+  print(pay)
+  print(mod)
+  context = { 'term_data' : term_data,
+                'pay' : pay,
+                'mod' : mod,
+            }
+  return render(request, 'admin/admin_update.html', context)
+
 def module_updation_details(request,mid):
   data= Admin_Notification.objects.get(id=mid)
   if data.Modules_List:
@@ -486,11 +505,8 @@ def distributor_home(request):
   return render(request,'distributor/distributor_home.html',{'distributor':distributor})
       
 def clients(request):
-  data= Admin_Notification.objects.filter(status='New',
-                                          Modules_List__isnull=False,
-                                          PaymentTerms_updation__isnull=False,).first()
-  print(data)
-  return render(request,'admin/clients.html',{'data':data})
+  
+  return render(request,'admin/clients.html')
 
 def distributors(request):
   return render(request,'admin/distributors.html')  
@@ -1103,9 +1119,6 @@ def deleteparty(request, id):
 
 @login_required(login_url='login')
 def adminhome(request):
- 
-  
-  
   return render(request, 'admin/adminhome.html')
 
 def downloadPartySampleImportFile(request):
@@ -4925,9 +4938,10 @@ def login(request):
             print(staff_id)
  
           return redirect('homepage')  
-      else:
+      elif data.company.superadmin_approval == 0 or data.company.Distributor_approval == 0:
         messages.info(request, 'Approval is Pending..')
         return redirect('log_page')
+      elif 
       
     if staff_details.objects.filter(user_name=user_name,password=passw,position='staff').exists():
       data = staff_details.objects.get(user_name=user_name,password=passw,position='staff')   
@@ -5243,34 +5257,32 @@ def view_parties(request,pk):
 
   for model in models_to_check1:
     if model.objects.filter(company=staff.company.id, party=getparty).exists():
-      model_queries[model.__name__] = model.objects.filter(company=staff.company.id, party=getparty)
+        model_queries[model.__name__] = model.objects.filter(company=staff.company.id, party=getparty)
+        for history_model_name, history_model in model_queries.items():
+          if model.__name__ == 'PurchaseBill':
+            purbill = PurchaseBillTransactionHistory.objects.filter(purchasebill__in = history_model).first()
+            # print(purbill)
+        # print(model_queries[model.__name__]['id'])
+        # history_query = model.objects.none() 
+        # for history_model_name, history_model in history_models_to_check1.items():
+        #     if model.__name__ == history_model_name:
+        #         if model.__name__ == 'PaymentOut':
+        #           pay_out = PaymentOut.objects.get(company=staff.company.id, id =  model_queries['PaymentOut'].id)
+        #           related_queryset = history_model.objects.filter(paymentout=pay_out)
+        #         related_queryset = history_model.objects.filter(company=staff.company.id)
+        #         latest_history = related_queryset.annotate(max_date=Max('id')).order_by('-max_date').first()
+        #         if latest_history:
+        #             history_query |= history_model.objects.filter(id=latest_history.id)
+        # model_queries[model.__name__ + '_history'] = history_query
 
-      for history_model_name, history_model in history_models_to_check1:
-        if model.__name__ == history_model_name:
-            
-            history_query = history_model.objects.filter(
-                Q(purchasebill__in=model_queries[model.__name__]) |
-                Q(purchaseorder__in=model_queries[model.__name__]) |
-                Q(salesinvoice__in=model_queries[model.__name__]) |
-                Q(debitnote__in=model_queries[model.__name__]) |
-                Q(creditnote__in=model_queries[model.__name__]) |
-                Q(paymentout__in=model_queries[model.__name__]) |
-                Q(payment__in=model_queries[model.__name__]) 
-            )
-
-            model_queries[model.__name__+'_history'] = history_query
-  print(model_queries[model.__name__+'_history'])
-  for model in models_to_check2:
-    if model.objects.filter(company=staff.company.id, party_name=getparty.party_name).exists():
-        model_queries[model.__name__] = model.objects.filter(company=staff.company.id, party_name=getparty.party_name)
-        for history_model in history_models_to_check1:
-          if history_model:
-            # history_query = history_model.objects.filter(
-            #       Q(estimate__in=model_queries[model.__name__]) |
-            #       Q(challan__in=model_queries[model.__name__]) 
-            # )
-            # model_queries[model.__name__+'_history'] = history_query
-            pass      
+  # for model in models_to_check2:
+  #     if model.objects.filter(company=staff.company.id, party_name=getparty.party_name).exists():
+  #         model_queries[model.__name__] = model.objects.filter(company=staff.company.id, party_name=getparty.party_name)
+  #         for history_model_name, history_model in history_models_to_check1.items():
+  #             if history_model_name == model.__name__:
+  #                 latest_history = history_model.objects.filter(company=staff.company.id, estimate__in=model_queries[model.__name__]).annotate(max_id=Max('id')).order_by('-max_id').first()
+  #                 if latest_history:
+  #                     model_queries[model.__name__ + '_history'] = latest_history
   expenses = Expense.objects.filter(staff_id = staff, party_id = getparty).values()
   sales_orders = salesorder.objects.filter(comp = staff.company.id, party = getparty).values()
   
@@ -12869,10 +12881,15 @@ def Intrested_Company(request):
 
   if request.method == 'POST':
     term = request.POST['payment_term']
+    if Payment_Terms_updation.objects.filter(company_id=com,user_Id = request.user,status= "New"):
+       Payment_Terms_updation.objects.filter(company_id=com,user_Id = request.user,status= "New").delete()
     pay = payment_terms.objects.get(id=term)
 
     pay = Payment_Terms_updation(company_id=com,user_Id = request.user,Payment_Term = pay)
     pay.save()   
+
+    if modules_list.objects.filter(company=com.id, status='Pending'):
+       modules_list.objects.filter(company=com.id, status='Pending').delete()
 
     c1=request.POST.get('c1')
     c2=request.POST.get('c2')
@@ -12890,24 +12907,72 @@ def Intrested_Company(request):
     c14=request.POST.get('c14')
     c15=request.POST.get('c15')
 
-    mod_list=modules_list(company=com,sales_invoice = c1,
-                      Estimate=c2,Payment_in=c3,sales_order=c4,
-                      Delivery_challan=c5,sales_return=c6,Purchase_bills=c7,
-                      Payment_out=c8,Purchase_order=c9,Purchase_return=c10,
-                      Bank_account=c11,Cash_in_hand=c12, cheques=c13,Loan_account=c14,Upi=c15,status='Pending')
-    mod_list.save()
-    modules_list.objects.filter(company=com.id,status='Pending').update(update_action=1)
-    mod_list1 = modules_list.objects.get(company=com.id,status='Pending',update_action=1)
-    if com.reg_action == 'self':   
-      noti = Admin_Notification(company_id=com,user_Id = request.user,PaymentTerms_updation = pay,Modules_List = mod_list1,Title = "Extend Payment Terms",Discription = com.company_name+ " request for Payment Terms extension")
+    # mod_list1 = modules_list.objects.filter(company=com.id, status='Pending', update_action=1).latest('id')
+
+    mod_list1 = modules_list(
+        company=com,
+        sales_invoice=c1,
+        Estimate=c2,
+        Payment_in=c3,
+        sales_order=c4,
+        Delivery_challan=c5,
+        sales_return=c6,
+        Purchase_bills=c7,
+        Payment_out=c8,
+        Purchase_order=c9,
+        Purchase_return=c10,
+        Bank_account=c11,
+        Cash_in_hand=c12,
+        cheques=c13,
+        Loan_account=c14,
+        Upi=c15,
+        status='Pending'
+    )
+    mod_list1.save()
+
+    # modules_list.objects.filter(company=com.id, status='Pending').update(update_action=1)
+
+
+    if com.reg_action == 'self':
+      existing_notifications = Admin_Notification.objects.filter(
+          Q(company_id=com, PaymentTerms_updation__isnull=False) |
+          Q(company_id=com, Modules_List__isnull=False) |
+          Q(company_id=com, Modules_List__isnull=False, PaymentTerms_updation__isnull=False, status='New')
+      )
+      existing_notifications.delete()
+
+      noti = Admin_Notification(
+          company_id=com,
+          user_Id=request.user,
+          PaymentTerms_updation=pay,
+          Modules_List=mod_list1,
+          Title="Extend Payment Terms",
+          Discription=com.company_name + " request for Payment Terms extension"
+      )
       noti.save()
-      com.Trial_Feedback = 'Intrest'
+      com.Trial_Feedback = 'Interest'
       com.save()
+
     else:
-      noti = Distributor_Notification(company_id=com,distributor_id=com.Distributors,PaymentTerms_updation = pay,Modules_List = mod_list1,Title = "Extend Payment Terms",Discription = com.company_name+ " request for Payment Terms extension")
+      existing_notifications = Admin_Notification.objects.filter(
+          Q(company_id=com, PaymentTerms_updation__isnull=False) |
+          Q(company_id=com, Modules_List__isnull=False) |
+          Q(company_id=com, Modules_List__isnull=False, PaymentTerms_updation__isnull=False, status='New')
+      )
+      existing_notifications.delete()
+
+      noti = Admin_Notification(
+          company_id=com,
+          user_Id=request.user,
+          PaymentTerms_updation=pay,
+          Modules_List=mod_list1,
+          Title="Extend Payment Terms",
+          Discription=com.company_name + " request for Payment Terms extension"
+      )
       noti.save()
-      com.Trial_Feedback = 'Intrest'
+      com.Trial_Feedback = 'Interest'
       com.save()
+
 
     staff.company.Trial_Feedback = 'Intrest'
     staff.company.save()

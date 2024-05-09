@@ -71,48 +71,87 @@
 <div class="body-wrapper">
    <div class="container-fluid" >
 
-    <!-- <div class="row mt-5">
+    <div class="row mt-5">
       <div class="col-md-4">
         <div class="card" style="box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);" >
           <div class="card-body">
-
-
             
-
-            <div class="row">
+     
+            {% if term_data %}
+            <div class="row text-center">
               <div class="col-md-9">
-                <a href="">
-                <h5 class="card-title mb-9 fw-semibold"><b>DISTRIBUTORS REQUEST</b></h5>
+                <a href="{% url 'module_updation_details' term_data.id %}">
+                <h5 class="card-title mb-9 fw-semibold"><b>Term Extension&nbsp;
+                    &nbsp;
+                    &nbsp;
+                    &nbsp;
+                    &nbsp;
+                    &nbsp;
+                    &nbsp;</b></h5>
+
               </a>
                 
 
               </div>
               <div class="col">
-                <a href="">
-                <i class="fa fa-user-plus text-primary" style="font-size: 2em;"></i>
+                <a href="{% url 'module_updation_details' term_data.id %}">
+                <i class="fas fa-book text-primary" style="font-size: 2em;"></i>
               </a>
                 
               </div>
             </div>
+            <div class="row"></div>
           </div>
         </div>
       </div>      
-      
+        {% else%}    
+        <div class="row text-center">
+            <div class="col-md-9">
+              <a href="">
+              <h5 class="card-title mb-9 fw-semibold"><b>Term Extension&nbsp;
+                  &nbsp;
+                  &nbsp;
+                  &nbsp;
+                  &nbsp;
+                  &nbsp;
+                  &nbsp;
+                </b>
+                </h5>
+            </a>
+            </div>
+            <div class="col-md-3">
+              <a href="">
+              <i class="fas fa-book text-primary" style="font-size: 2em;"></i>
+            </a>
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+    </div>      
+    {% endif %}
+     
+    {% if mod %}
       <div class="col-md-4">
         <div class="card" style="box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);" >
           <div class="card-body">
-            <div class="row">
+            <div class="row text-center">
               <div class="col-md-9">
                 <a href="">
                   
-                  <h5 class="card-title mb-9 fw-semibold"><b>ALL DISTRIBUTORS</b></h5>
+                  <h5 class="card-title mb-9 fw-semibold"><b>Modules Change &nbsp;
+                    &nbsp;
+                    &nbsp;
+                    &nbsp;
+                  </b></h5>
                 </a>
                 
 
               </div>
               <div class="col">
                 <a href="">
-                <i class="fa fa-users text-primary" style="font-size: 2.3em;"></i>
+                <i class=" fas fa-clipboard-list text-primary" style="font-size: 2em;"></i>
               </a>
                 
               </div>
@@ -120,75 +159,26 @@
           </div>
         </div>
       </div>   
-    </div> -->
-
-
-    <div class="row mt-5">
-      <div class="col-md-6">
+      {% else %}
+      <div class="col-md-4">
         <div class="card" style="box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);" >
           <div class="card-body">
-
-
-            
-
-            <div class="row">
+            <div class="row text-center">
               <div class="col-md-9">
-                <a href="{% url 'client_request' %}">
-                <h5 class="card-title mb-9 fw-semibold"><b>CLIENTS REQUEST</b></h5>
-              </a>
-                
-
-              </div>
-              <div class="col">
-                <a href="{% url 'client_request' %}">
-                <i class="fa fa-user-plus text-primary" style="font-size: 2em;"></i>
-              </a>
-                
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>     
-      
-      
-      <div class="col-md-6 mb-5">
-        <div class="card" style="box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);" >
-          <div class="card-body">
-            <div class="row">
-              <div class="col-md-9">
-                <a href="{% url 'client_details' %}">
+                <a href="">
                   
-                  <h5 class="card-title mb-9 fw-semibold"><b>ALL CLIENTS</b></h5>
+                  <h5 class="card-title mb-9 fw-semibold"><b>Modules Change &nbsp;
+                    &nbsp;
+                    &nbsp;
+                    &nbsp;
+                  </b></h5>
                 </a>
                 
 
               </div>
               <div class="col">
-                <a href="{% url 'client_details' %}">
-                <i class="fa fa-users text-primary" style="font-size: 2.3em;"></i>
-              </a>
-                
-              </div>
-            </div>
-          </div>
-        </div>
-      </div> 
-      
-      <div class="col-md-6 mb-5">
-        <div class="card" style="box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);" >
-          <div class="card-body">
-            <div class="row">
-              <div class="col-md-9">
-                <a href="{% url 'Intrested_clients' %}">
-                  
-                  <h5 class="card-title mb-9 fw-semibold"><b>INTRESTED CLIENTS</b></h5>
-                </a>
-                
-
-              </div>
-              <div class="col">
-                <a href="{% url 'Intrested_clients' %}">
-                <i class="fa fa-users text-success" style="font-size: 2.3em;"></i>
+                <a href="">
+                <i class=" fas fa-clipboard-list text-primary" style="font-size: 2em;"></i>
               </a>
                 
               </div>
@@ -196,35 +186,60 @@
           </div>
         </div>
       </div>   
-    
+      {% endif %}
 
-    
-
-    <div class="col-md-6 mb-5">
-      <div class="card" style="box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);" >
-        <div class="card-body">
-          <div class="row">
-            <div class="col-md-9">
-              <a href="{% url 'NotIntrested_clients' %}">
+      {% if pay %}
+      <div class="col-md-4">
+        <div class="card" style="box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);" >
+          <div class="card-body">
+            <div class="row text-center">
+              <div class="col-md-9">
+                <a href="">
+                  
+                  <h5 class="card-title mb-9 fw-semibold"><b>Payment Term Change</b></h5>
+                </a>
                 
-                <h5 class="card-title mb-9 fw-semibold"><b>NOT INTRESTED CLIENTS</b></h5>
-              </a>
-              
 
-            </div>
-            <div class="col">
-              <a href="{% url 'NotIntrested_clients' %}">
-              <i class="fa fa-users text-danger" style="font-size: 2.3em;"></i>
-            </a>
-              
+              </div>
+              <div class="col">
+                <a href="">
+                <i class=" fas fa-edit text-primary" style="font-size: 2em;"></i>
+              </a>
+                
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </div>  
+      </div>   
+      {% else %}
+      <div class="col-md-4">
+        <div class="card" style="box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);" >
+          <div class="card-body">
+            <div class="row text-center">
+              <div class="col-md-9">
+                <a href="">
+                  
+                  <h5 class="card-title mb-9 fw-semibold"><b>Payment Term Change</b></h5>
+                </a>
+                
 
-  </div>
- 
+              </div>
+              <div class="col">
+                <a href="">
+                <i class=" fas fa-edit text-primary" style="font-size: 2em;"></i>
+              </a>
+                
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>  
+      {% endif %}
+
+    </div>
+    
+  
+
   </div>
 
 
