@@ -389,21 +389,17 @@ def admin_notification(request):
   return render(request,'admin/admin_notification.html',{'data':data}) 
 
 def updates_admin(request):
-  term_data= Admin_Notification.objects.filter(status='New',
-                                          Modules_List__isnull=False,
-                                          PaymentTerms_updation__isnull=False,).first()
-  pay = Admin_Notification.objects.filter(status='New',
-                                          Modules_List__isnull=True,
-                                          PaymentTerms_updation__isnull=False,).first()
-  mod = Admin_Notification.objects.filter(status='New',
-                                          Modules_List__isnull=False,
-                                          PaymentTerms_updation__isnull=True,).first()
+  term_data= Admin_Notification.objects.filter( status='New' )
+  # pay_tem = Admin_Notification.objects.filter(  status='New',
+  #                                               Modules_List__isnull=True,
+  #                                               PaymentTerms_updation__isnull=False,)
+  # module = Admin_Notification.objects.filter( status='New',
+  #                                             Modules_List__isnull=False,
+  #                                             PaymentTerms_updation__isnull=True,)
   print(term_data)
-  print(pay)
-  print(mod)
-  context = { 'term_data' : term_data,
-                'pay' : pay,
-                'mod' : mod,
+  context = { 'data' : term_data,
+                # 'pay_tem' : pay_tem,
+                # 'module' : module,
             }
   return render(request, 'admin/admin_update.html', context)
 
@@ -4910,11 +4906,8 @@ def login(request):
     
     log_user = auth.authenticate(username = user_name,
                                   password = passw)
-    
     if log_user is not None:
       auth.login(request, log_user)
-
-      # ---super admin---
 
       if request.user.is_staff==1:
         return redirect('adminhome')
@@ -4935,13 +4928,15 @@ def login(request):
         if 'staff_id' in request.session:
           if request.session.has_key('staff_id'):
             staff_id = request.session['staff_id']
-            print(staff_id)
- 
+            if Admin_Notification.objects.filter(company_id=data.company).filter(Q( Modules_List__isnull=False, PaymentTerms_updation__isnull=False, status='New')):
+              messages.info(request, 'Payment Term Extension Request Pending..')
+              return redirect('log_page')
           return redirect('homepage')  
-      elif data.company.superadmin_approval == 0 or data.company.Distributor_approval == 0:
+      else :
         messages.info(request, 'Approval is Pending..')
         return redirect('log_page')
-      elif 
+      
+                                                                                                    
       
     if staff_details.objects.filter(user_name=user_name,password=passw,position='staff').exists():
       data = staff_details.objects.get(user_name=user_name,password=passw,position='staff')   
@@ -4950,9 +4945,11 @@ def login(request):
         if 'staff_id' in request.session:
           if request.session.has_key('staff_id'):
             staff_id = request.session['staff_id']
-            print(staff_id)
+            if Admin_Notification.objects.filter(company_id=data.company).filter(Q( Modules_List__isnull=False, PaymentTerms_updation__isnull=False, status='New')):
+              messages.info(request, 'Payment Term Extension Request Pending..')
+              return redirect('log_page')
  
-            return redirect('staffhome')  
+          return redirect('staffhome')  
       else:
         messages.info(request, 'Approval is Pending..')
         return redirect('log_page')
@@ -4966,29 +4963,25 @@ def login(request):
 def homepage(request):
  
   staff_id = request.session['staff_id']
-  print(staff_id)
        
   staff =  staff_details.objects.get(id = staff_id)
-  print(staff.position)
   allmodules= modules_list.objects.get(company=staff.company.id,status='New')
 
   current_day=date.today() 
   diff = (staff.company.End_date - current_day).days
-  
+  data = Company_Notification.objects.filter(company_id = staff.company.id,status='New')
+  print(data)
   if staff.company.Trial_Feedback == 'No_Response':
     if diff <= 10:
       print("End of term:", diff)
-      if  Company_Notification.objects.filter(company_id = staff.company.id,status='New').exists():
+      if not Company_Notification.objects.filter(company_id=staff.company.id, status='New').exists():
+        print('Not exists')
         noti = Company_Notification.objects.filter(company_id = staff.company.id,status='New')
-        
         for n in noti:
-          if n.company_id.dateperiod:
+          if n.company_id.dateperiod :
             n.save()
           else:  
             n.delete()
-
-      # print("Trial Action:", staff.company.Trial_action)
-      # print("Date Period:", staff.company.dateperiod)      
 
       if staff.company.Trial_action == 1 and staff.company.dateperiod is None:
         n0 = Company_Notification(company_id = staff.company,Title = "🚀 Upgrade Available",Discription = "Your Trial Period End Soon...!!! Continue To Enjoy VYAPAR ,Upgrade Now..!")
@@ -5000,7 +4993,8 @@ def homepage(request):
     
   context = {
       'staff' : staff,
-      'allmodules':allmodules 
+      'allmodules':allmodules ,
+      'notification' : data,
     }
   return render(request, 'company/homepage.html', context)  
 
@@ -5048,19 +5042,28 @@ def Companyprofile(request):
 
 
 def check_module_status(request):
-    staff_id = request.session['staff_id']
-    staff =  staff_details.objects.get(id=staff_id)
-    module_status = modules_list.objects.get(company=staff.company.id, status='Pending').status
-    print(module_status)
-    return JsonResponse({'module_status': module_status})
+    try:
+        staff_id = request.session['staff_id']
+        staff = staff_details.objects.get(id=staff_id)
+        pending_module = modules_list.objects.filter(company=staff.company.id, status='Pending').order_by('?').first()
+        module_status = pending_module.status if pending_module else ""
+        print(module_status)
+        return JsonResponse({'module_status': module_status})
+    except modules_list.DoesNotExist:
+        print("No pending modules found.")
+        return JsonResponse({'module_status': ""})
 
 def check_term_status(request):
+  try:
     staff_id = request.session['staff_id']
-    staff =  staff_details.objects.get(id=staff_id)
-    term_status = Payment_Terms_updation.objects.get(company_id=staff.company.id, status='New').status
+    staff = staff_details.objects.get(id=staff_id)
+    pending_module = Payment_Terms_updation.objects.filter(company_id=staff.company.id, status='New').earliest('id')
+    term_status = pending_module.status if pending_module else ""
     print(term_status)
     return JsonResponse({'term_status': term_status})
-
+  except Payment_Terms_updation.DoesNotExist:
+    print("No pending modules found.")
+    return JsonResponse({'term_status': ""})
 
 
 

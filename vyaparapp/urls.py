@@ -29,6 +29,7 @@ urlpatterns = [
     path('staffhome', views.staffhome, name='staffhome'),
     path('adminhome', views.adminhome, name='adminhome'),
     path('updates_admin', views.updates_admin, name='updates_admin'),
+
     
     path('staff_register', views.staff_register, name='staff_register'),
     path('staff_registraction', views.staff_registraction, name='staff_registraction'),
