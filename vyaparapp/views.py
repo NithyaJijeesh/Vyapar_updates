@@ -585,57 +585,57 @@ def item_create(request):
 
 # @login_required(login_url='login')
 def items_list(request,pk):
+  
+  sid = request.session.get('staff_id')
+  staff =  staff_details.objects.get(id=sid)
+  cmp = company.objects.get(id=staff.company.id)
+
+  all_items = ItemModel.objects.filter(company=cmp) #updated - shemeem
+
+  if pk == 0:
+    first_item = all_items.filter().first()
+  elif pk != 0:
+    first_item = all_items.get(id=pk)
+
+  item_history= Item_History.objects.filter(
+    Item= first_item,
+    company=cmp
+  ).values('Item', 'action' , 'staff__first_name' , 'staff__last_name').last()
+
+  allmodules= modules_list.objects.get(company=staff.company,status='New')
+  transactions = None
+  # transactions = TransactionModel.objects.filter(user=request.user.id,item=first_item.id).order_by('-trans_created_date')
+  if first_item:
+    transactions = TransactionModel.objects.filter(company = cmp,item=first_item.id).order_by('-trans_created_date')
+
+  models_to_check1 = [CreditNoteItem, PurchaseBillItem, purchasedebit1, PurchaseOrderItem]
+  models_to_check2 = [SalesInvoiceItem,Estimate_items, DeliveryChallanItems]
+  model_queries = {}
+
+  for model in models_to_check1:
+      if model.objects.filter(company=staff.company.id, product=first_item.id).exists():
+          model_queries[model.__name__] = model.objects.filter(company=staff.company.id, product=first_item.id)
+
+  for model in models_to_check2:
+      if model.objects.filter(company=staff.company.id, item=first_item.id).exists():
+          model_queries[model.__name__] = model.objects.filter(company=staff.company.id, item=first_item.id)
+
+  sales_orders = sales_item.objects.filter(cmp=staff.company.id, product=first_item.id)
+
+
+  context = {
+    'first_item':first_item,
+    'transactions':transactions,
+    'company':cmp, 
+    'staff':staff, 
+    'allmodules' : allmodules, 
+    'all_items' : all_items , 
+    'Item_History' : item_history,
+    'sales_orders' : sales_orders,
+    "model_queries": model_queries,
+    
+  }
   try:
-    sid = request.session.get('staff_id')
-    staff =  staff_details.objects.get(id=sid)
-    cmp = company.objects.get(id=staff.company.id)
-
-    all_items = ItemModel.objects.filter(company=cmp) #updated - shemeem
-
-    if pk == 0:
-      first_item = all_items.filter().first()
-    elif pk != 0:
-      first_item = all_items.get(id=pk)
-
-    item_history= Item_History.objects.filter(
-      Item= first_item,
-      company=cmp
-    ).values('Item', 'action' , 'staff__first_name' , 'staff__last_name').last()
-
-    allmodules= modules_list.objects.get(company=staff.company,status='New')
-    transactions = None
-    # transactions = TransactionModel.objects.filter(user=request.user.id,item=first_item.id).order_by('-trans_created_date')
-    if first_item:
-      transactions = TransactionModel.objects.filter(company = cmp,item=first_item.id).order_by('-trans_created_date')
-
-    models_to_check1 = [CreditNoteItem, PurchaseBillItem, purchasedebit1, PurchaseOrderItem]
-    models_to_check2 = [SalesInvoiceItem,Estimate_items, DeliveryChallanItems]
-    model_queries = {}
-
-    for model in models_to_check1:
-        if model.objects.filter(company=staff.company.id, product=first_item.id).exists():
-            model_queries[model.__name__] = model.objects.filter(company=staff.company.id, product=first_item.id)
-
-    for model in models_to_check2:
-        if model.objects.filter(company=staff.company.id, item=first_item.id).exists():
-            model_queries[model.__name__] = model.objects.filter(company=staff.company.id, item=first_item.id)
-
-    sales_orders = sales_item.objects.filter(cmp=staff.company.id, product=first_item.id)
-
-
-    context = {
-      'first_item':first_item,
-      'transactions':transactions,
-      'company':cmp, 
-      'staff':staff, 
-      'allmodules' : allmodules, 
-      'all_items' : all_items , 
-      'Item_History' : item_history,
-      'sales_orders' : sales_orders,
-      "model_queries": model_queries,
-      
-    }
-
     if all_items == None or all_items == '' or first_item == None or first_item == '' or transactions == None or transactions == '':
       return render(request,'company/items_create_first_item.html', context)
     return render(request,'company/items_list.html',context)
