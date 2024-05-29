@@ -29,6 +29,8 @@ urlpatterns = [
     path('staffhome', views.staffhome, name='staffhome'),
     path('adminhome', views.adminhome, name='adminhome'),
     path('updates_admin', views.updates_admin, name='updates_admin'),
+    path('list_admin_notification/<int:num>', views.list_admin_notification, name='list_admin_notification'),
+
 
     
     path('staff_register', views.staff_register, name='staff_register'),

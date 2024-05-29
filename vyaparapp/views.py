@@ -386,24 +386,52 @@ def add_payment_terms(request):
 def admin_notification(request):
   data= Admin_Notification.objects.filter(status='New')
   
-  return render(request,'admin/admin_notification.html',{'data':data}) 
+  context = { 
+                'data' :data
+            }
+  
+  return render(request,'admin/admin_notification.html',context) 
 
 def updates_admin(request):
-  term_data= Admin_Notification.objects.filter( status='New' )
-  # pay_tem = Admin_Notification.objects.filter(  status='New',
-  #                                               Modules_List__isnull=True,
-  #                                               PaymentTerms_updation__isnull=False,)
-  # module = Admin_Notification.objects.filter( status='New',
-  #                                             Modules_List__isnull=False,
-  #                                             PaymentTerms_updation__isnull=True,)
-  print(term_data)
-  context = { 'data' : term_data,
-                # 'pay_tem' : pay_tem,
-                # 'module' : module,
+  term_data= Admin_Notification.objects.filter( status='New', 
+                                                Modules_List__isnull=False, 
+                                                PaymentTerms_updation__isnull=False)
+  pay_term = Admin_Notification.objects.filter(  status='New',
+                                                Modules_List__isnull=True,
+                                                PaymentTerms_updation__isnull=False)
+  module = Admin_Notification.objects.filter( status='New',
+                                              Modules_List__isnull=False,
+                                              PaymentTerms_updation__isnull=True)
+
+  context = { 'term_data' : term_data,
+              'pay_term' : pay_term,
+              'module' : module,
             }
   return render(request, 'admin/admin_update.html', context)
 
+
+def list_admin_notification(request, num):
+
+  if num == 1:
+    data= Admin_Notification.objects.filter( status='New', 
+                                                Modules_List__isnull=False, 
+                                                PaymentTerms_updation__isnull=False)
+  elif num == 2:
+    data = Admin_Notification.objects.filter(  status='New',
+                                                Modules_List__isnull=True,
+                                                PaymentTerms_updation__isnull=False)
+  elif num == 3:
+    data = Admin_Notification.objects.filter( status='New',
+                                              Modules_List__isnull=False,
+                                              PaymentTerms_updation__isnull=True)
+
+  context = { 'data' :data, }
+                
+  return render(request, 'admin/list_admin_notifications.html', context)
+
+
 def module_updation_details(request,mid):
+
   data= Admin_Notification.objects.get(id=mid)
   if data.Modules_List:
     old_modules= modules_list.objects.get(company=data.company_id,status='New')
@@ -589,39 +617,42 @@ def items_list(request,pk):
   sid = request.session.get('staff_id')
   staff =  staff_details.objects.get(id=sid)
   cmp = company.objects.get(id=staff.company.id)
-
+  print(cmp)
   all_items = ItemModel.objects.filter(company=cmp) #updated - shemeem
-
-  if pk == 0:
-    first_item = all_items.filter().first()
-  elif pk != 0:
+  print(all_items)
+  first_item = model_queries
+  # if pk == 0:
+  #   first_item = all_items.filter().first()
+  #   print(first_item)
+  # elif pk != 0:
+  #   first_item = all_items.get(id=pk)
+  if pk != 0:
     first_item = all_items.get(id=pk)
 
-  item_history= Item_History.objects.filter(
-    Item= first_item,
-    company=cmp
-  ).values('Item', 'action' , 'staff__first_name' , 'staff__last_name').last()
+    item_history= Item_History.objects.filter(
+      Item= first_item,
+      company=cmp
+    ).values('Item', 'action' , 'staff__first_name' , 'staff__last_name').last()
 
-  allmodules= modules_list.objects.get(company=staff.company,status='New')
-  transactions = None
-  # transactions = TransactionModel.objects.filter(user=request.user.id,item=first_item.id).order_by('-trans_created_date')
-  if first_item:
-    transactions = TransactionModel.objects.filter(company = cmp,item=first_item.id).order_by('-trans_created_date')
+    allmodules= modules_list.objects.get(company=staff.company,status='New')
+    transactions = None
+    # transactions = TransactionModel.objects.filter(user=request.user.id,item=first_item.id).order_by('-trans_created_date')
+    if first_item:
+      transactions = TransactionModel.objects.filter(company = cmp,item=first_item.id).order_by('-trans_created_date')
 
-  models_to_check1 = [CreditNoteItem, PurchaseBillItem, purchasedebit1, PurchaseOrderItem]
-  models_to_check2 = [SalesInvoiceItem,Estimate_items, DeliveryChallanItems]
-  model_queries = {}
+    models_to_check1 = [CreditNoteItem, PurchaseBillItem, purchasedebit1, PurchaseOrderItem]
+    models_to_check2 = [SalesInvoiceItem,Estimate_items, DeliveryChallanItems]
+    model_queries = {}
 
-  for model in models_to_check1:
-      if model.objects.filter(company=staff.company.id, product=first_item.id).exists():
-          model_queries[model.__name__] = model.objects.filter(company=staff.company.id, product=first_item.id)
+    for model in models_to_check1:
+        if model.objects.filter(company=staff.company.id, product=first_item.id).exists():
+            model_queries[model.__name__] = model.objects.filter(company=staff.company.id, product=first_item.id)
 
-  for model in models_to_check2:
-      if model.objects.filter(company=staff.company.id, item=first_item.id).exists():
-          model_queries[model.__name__] = model.objects.filter(company=staff.company.id, item=first_item.id)
+    for model in models_to_check2:
+        if model.objects.filter(company=staff.company.id, item=first_item.id).exists():
+            model_queries[model.__name__] = model.objects.filter(company=staff.company.id, item=first_item.id)
 
-  sales_orders = sales_item.objects.filter(cmp=staff.company.id, product=first_item.id)
-
+    sales_orders = sales_item.objects.filter(cmp=staff.company.id, product=first_item.id)
 
   context = {
     'first_item':first_item,
@@ -641,6 +672,7 @@ def items_list(request,pk):
     return render(request,'company/items_list.html',context)
   except:
     return render(request,'company/items_create_first_item.html', context)
+
 
 # @login_required(login_url='login')
 def item_create_new(request):
@@ -4960,6 +4992,7 @@ def login(request):
    return redirect('log_page') 
   
 
+
 def homepage(request):
  
   staff_id = request.session['staff_id']
@@ -4970,24 +5003,20 @@ def homepage(request):
   current_day=date.today() 
   diff = (staff.company.End_date - current_day).days
   data = Company_Notification.objects.filter(company_id = staff.company.id,status='New')
-  print(data)
-  if staff.company.Trial_Feedback == 'No_Response':
-    if diff <= 10:
-      print("End of term:", diff)
-      if not Company_Notification.objects.filter(company_id=staff.company.id, status='New').exists():
-        print('Not exists')
-        noti = Company_Notification.objects.filter(company_id = staff.company.id,status='New')
-        for n in noti:
-          if n.company_id.dateperiod :
-            n.save()
-          else:  
-            n.delete()
+
+  if staff.company.Trial_Feedback == 'No_Response' and diff <=10:
+    if not  data.exists():
+      for n in data:
+        if n.company_id.dateperiod :
+          n.save()
+        else:  
+          n.delete()
 
       if staff.company.Trial_action == 1 and staff.company.dateperiod is None:
-        n0 = Company_Notification(company_id = staff.company,Title = "🚀 Upgrade Available",Discription = "Your Trial Period End Soon...!!! Continue To Enjoy VYAPAR ,Upgrade Now..!")
+        n0 = Company_Notification(company_id = staff.company,Title = "Upgrade Available",Discription = "Your Trial Period End Soon...!!! Continue To Enjoy VYAPAR ,Upgrade Now..!")
         n0.save() 
           
-      else :
+      elif   staff.company.Trial_action == 1 and staff.company.dateperiod is not None:
         n0 = Company_Notification(company_id = staff.company,Title = "Payment Terms Alert",Discription = "Your Payment Terms End Soon")
         n0.save() 
     
@@ -4997,6 +5026,7 @@ def homepage(request):
       'notification' : data,
     }
   return render(request, 'company/homepage.html', context)  
+
 
 def staff_request(request):
   staff_id = request.session['staff_id']

@@ -77,11 +77,11 @@
           <div class="card-body">
 
      
-            {% if term_data %}
+            {% if pay_term%}
             
             <div class="row text-center">
               <div class="col-md-9">
-                <a href="{% url 'module_updation_details' 0 %}">
+                <a href="{% url 'list_admin_notification' 1 %}">
                 <h5 class="card-title mb-9 fw-semibold"><b>Term Extension&nbsp;
                     &nbsp;
                     &nbsp;
@@ -91,11 +91,9 @@
                     &nbsp;</b></h5>
 
               </a>
-                
-
               </div>
               <div class="col">
-                <a href="{% url 'module_updation_details' 0 %}">
+                <a href="{% url 'list_admin_notification' 1 %}">
                 <i class="fas fa-book text-primary" style="font-size: 2em;"></i>
               </a>
                 
@@ -133,13 +131,13 @@
     </div>      
     {% endif %}
      
-    {% if mod %}
+    {% if module %}
       <div class="col-md-4">
         <div class="card" style="box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);" >
           <div class="card-body">
             <div class="row text-center">
               <div class="col-md-9">
-                <a href="{% url 'module_updation_details' 0 %}">
+                <a href="{% url 'list_admin_notification' 2 %}">
                   
                   <h5 class="card-title mb-9 fw-semibold"><b>Modules Change &nbsp;
                     &nbsp;
@@ -151,7 +149,7 @@
 
               </div>
               <div class="col">
-                <a href="{% url 'module_updation_details' 0 %}">
+                <a href="{% url 'list_admin_notification' 2 %}">
                 <i class=" fas fa-clipboard-list text-primary" style="font-size: 2em;"></i>
               </a>
                 
@@ -189,13 +187,13 @@
       </div>   
       {% endif %}
 
-      {% if pay %}
+      {% if term_data %}
       <div class="col-md-4">
         <div class="card" style="box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);" >
           <div class="card-body">
             <div class="row text-center">
               <div class="col-md-9">
-                <a href="{% url 'module_updation_details' 0 %}">
+                <a href="{% url 'list_admin_notification' 3 %}">
                   
                   <h5 class="card-title mb-9 fw-semibold"><b>Payment Term Change</b></h5>
                 </a>
@@ -203,7 +201,7 @@
 
               </div>
               <div class="col">
-                <a href="{% url 'module_updation_details' 0 %}">
+                <a href="{% url 'list_admin_notification' 3 %}">
                 <i class=" fas fa-edit text-primary" style="font-size: 2em;"></i>
               </a>
                 
