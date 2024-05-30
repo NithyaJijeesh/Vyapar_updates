@@ -617,15 +617,16 @@ def items_list(request,pk):
   sid = request.session.get('staff_id')
   staff =  staff_details.objects.get(id=sid)
   cmp = company.objects.get(id=staff.company.id)
-  print(cmp)
   all_items = ItemModel.objects.filter(company=cmp) #updated - shemeem
-  print(all_items)
-  first_item = model_queries
+  allmodules= modules_list.objects.get(company=staff.company,status='New')
+  # first_item = model_queries
   # if pk == 0:
   #   first_item = all_items.filter().first()
-  #   print(first_item)
   # elif pk != 0:
   #   first_item = all_items.get(id=pk)
+  transactions = first_item = item_history = sales_orders = None
+  model_queries = {}
+
   if pk != 0:
     first_item = all_items.get(id=pk)
 
@@ -634,15 +635,14 @@ def items_list(request,pk):
       company=cmp
     ).values('Item', 'action' , 'staff__first_name' , 'staff__last_name').last()
 
-    allmodules= modules_list.objects.get(company=staff.company,status='New')
-    transactions = None
-    # transactions = TransactionModel.objects.filter(user=request.user.id,item=first_item.id).order_by('-trans_created_date')
+    
+    
     if first_item:
       transactions = TransactionModel.objects.filter(company = cmp,item=first_item.id).order_by('-trans_created_date')
 
     models_to_check1 = [CreditNoteItem, PurchaseBillItem, purchasedebit1, PurchaseOrderItem]
     models_to_check2 = [SalesInvoiceItem,Estimate_items, DeliveryChallanItems]
-    model_queries = {}
+    
 
     for model in models_to_check1:
         if model.objects.filter(company=staff.company.id, product=first_item.id).exists():
@@ -666,12 +666,12 @@ def items_list(request,pk):
     "model_queries": model_queries,
     
   }
-  try:
-    if all_items == None or all_items == '' or first_item == None or first_item == '' or transactions == None or transactions == '':
-      return render(request,'company/items_create_first_item.html', context)
-    return render(request,'company/items_list.html',context)
-  except:
+  # try:
+  if all_items == None or all_items == '' or first_item == None or first_item == '' or transactions == None or transactions == '':
     return render(request,'company/items_create_first_item.html', context)
+  return render(request,'company/items_list.html',context)
+  # except:
+  #   return render(request,'company/items_create_first_item.html', context)
 
 
 # @login_required(login_url='login')
