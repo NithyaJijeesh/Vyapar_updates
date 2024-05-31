@@ -32,6 +32,9 @@
     .tg{
         color: rgb(0, 140, 7);
     }
+    .te{
+        color: #FA896B;
+    }
     .tr{
         color: rgb(218, 0, 0);
     }
@@ -502,6 +505,11 @@
                                                             <button style="border: none;background: none;" type="button" class="ropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
                                                                 <span class="fa fa-ellipsis-v text-dark fs-1 ps-"></span>
                                                             </button>
+                                                            <ul class="dropdown-menu">
+                                                                <li><a class="dropdown-item fw-bold tb hide_table_text_v" href="{% url 'item_view_or_edit' first_item.id %}"><span class="fa fa-eye pe-2 tg"></span> View / Edit</a></li>
+                                                                <li><a class="dropdown-item fw-bold tb hide_table_text_v" href="{% url 'item_histories' first_item.id %}"><span class="fa fa-history pe-2 th"></span> History</a></li>
+                                                                <li><button type="button" href="{% url 'transaction_delete' first_item.id %}" class="dropdown-item fw-bold tb hide_table_text_d"><span class="fa fa-trash-alt tr" style="padding-inline-start: 0.1rem;padding-inline-end:0.7rem ;"></span> Delete</button></li>
+                                                            </ul>
                                                         </div>
                                                     </td>
                                                 </tr> 
@@ -527,6 +535,11 @@
                                                             <button style="border: none;background: none;" type="button" class="ropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
                                                                 <span class="fa fa-ellipsis-v text-dark fs-1 ps-"></span>
                                                             </button>
+                                                            <ul class="dropdown-menu">
+                                                                <li><a class="dropdown-item fw-bold tb hide_table_text_v" href="{% url 'item_view_or_edit' first_item.id %}"><span class="fa fa-eye pe-2 tg"></span> View / Edit</a></li>
+                                                                <li><a class="dropdown-item fw-bold tb hide_table_text_v" href="{% url 'item_histories' first_item.id %}"><span class="fa fa-history pe-2 th"></span> History</a></li>
+                                                                <li><button type="button" href="{% url 'transaction_delete' first_item.id %}" class="dropdown-item fw-bold tb hide_table_text_d"><span class="fa fa-trash-alt tr" style="padding-inline-start: 0.1rem;padding-inline-end:0.7rem ;"></span> Delete</button></li>
+                                                            </ul>
                                                         </div>
                                                     </td>
                                                 </tr> 
@@ -552,6 +565,11 @@
                                                             <button style="border: none;background: none;" type="button" class="ropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
                                                                 <span class="fa fa-ellipsis-v text-dark fs-1 ps-"></span>
                                                             </button>
+                                                            <ul class="dropdown-menu">
+                                                                <li><a class="dropdown-item fw-bold tb hide_table_text_v" href="{% url 'item_view_or_edit' first_item.id %}"><span class="fa fa-eye pe-2 tg"></span> View / Edit</a></li>
+                                                                <li><a class="dropdown-item fw-bold tb hide_table_text_v" href="{% url 'item_histories' first_item.id %}"><span class="fa fa-history pe-2 th"></span> History</a></li>
+                                                                <li><button type="button" href="{% url 'transaction_delete' first_item.id %}" class="dropdown-item fw-bold tb hide_table_text_d"><span class="fa fa-trash-alt tr" style="padding-inline-start: 0.1rem;padding-inline-end:0.7rem ;"></span> Delete</button></li>
+                                                            </ul>
                                                         </div>
                                                     </td>
                                                 </tr> 
@@ -578,6 +596,13 @@
                                                             <button style="border: none;background: none;" type="button" class="ropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
                                                                 <span class="fa fa-ellipsis-v text-dark fs-1 ps-"></span>
                                                             </button>
+                                                        
+                                                            <ul class="dropdown-menu">
+                                                                <li><a class="dropdown-item fw-bold tb hide_table_text_v" href="{% url 'salesinvoice_billtemplate'  model.salesinvoice.id  %}"><span class="fa fa-eye pe-2 tg"></span> View </a></li>
+                                                                <li><a class="dropdown-item fw-bold tb hide_table_text_v" href="{% url 'edit_salesinvoice' model.salesinvoice.id  %}"><span class="fa fa-edit pe-2 te"></span> Edit</a></li>
+                                                                <li><a class="dropdown-item fw-bold tb hide_table_text_v" href="{% url 'salesinvoicehistory' model.salesinvoice.id  %}"><span class="fa fa-history pe-2 th"></span> History</a></li>
+                                                                <li><button type="button" href="{% url 'deletesalesinvoice' model.salesinvoice.id  %}" class="dropdown-item fw-bold tb hide_table_text_d"><span class="fa fa-trash-alt tr" style="padding-inline-start: 0.1rem;padding-inline-end:0.7rem ;"></span> Delete</button></li>
+                                                            </ul>
                                                         </div>
                                                     </td>
                                                 </tr> 
@@ -603,6 +628,12 @@
                                                             <button style="border: none;background: none;" type="button" class="ropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
                                                                 <span class="fa fa-ellipsis-v text-dark fs-1 ps-"></span>
                                                             </button>
+                                                            <ul class="dropdown-menu">
+                                                                <li><a class="dropdown-item fw-bold tb hide_table_text_v" href="{% url 'viewEstimate'  model.eid.id %}"><span class="fa fa-eye pe-2 tg"></span> View </a></li>
+                                                                <li><a class="dropdown-item fw-bold tb hide_table_text_v" href="{% url 'editEstimate'  model.eid.id %}"><span class="fa fa-edit pe-2 te"></span> Edit</a></li>
+                                                                <li><a class="dropdown-item fw-bold tb hide_table_text_v" href="{% url 'estimateTransactionHistory'  model.eid.id %}"><span class="fa fa-history pe-2 th"></span> History</a></li>
+                                                                <li><a class="dropdown-item fw-bold tb hide_table_text_d" onclick="deleteEstimate(`{{ model.eid.id}}`)"><span class="fa fa-trash-alt tr" style="padding-inline-start: 0.1rem;padding-inline-end:0.7rem ;"></span> Delete</a></li>
+                                                            </ul>
                                                         </div>
                                                     </td>
                                                 </tr> 
@@ -630,9 +661,10 @@
                                                         <span class="fa fa-ellipsis-v text-dark fs-1 ps-"></span>
                                                     </button>
                                                     <ul class="dropdown-menu">
-                                                        <li><a class="dropdown-item fw-bold tb hide_table_text_v" href="{% url 'saleorder_edit' i.id %}"><span class="fa fa-eye pe-2 tg"></span> View / Edit</a></li>
-                                                        <li><a class="dropdown-item fw-bold tb hide_table_text_v" href=""><span class="fa fa-history pe-2 th"></span> History</a></li>
-                                                        <li><button type="button" href="" class="dropdown-item fw-bold tb hide_table_text_d"><span class="fa fa-trash-alt tr" style="padding-inline-start: 0.1rem;padding-inline-end:0.7rem ;"></span> Delete</button></li>
+                                                        <li><a class="dropdown-item fw-bold tb hide_table_text_v" href="{% url 'saleorder_view' i.sale_order.id %}"><span class="fa fa-eye pe-2 tg"></span> View </a></li>
+                                                        <li><a class="dropdown-item fw-bold tb hide_table_text_v" href="{% url 'saleorder_edit' i.sale_order.id %}"><span class="fa fa-edit pe-2 te"></span> Edit</a></li>
+                                                        <li><a class="dropdown-item fw-bold tb hide_table_text_v" href="{% url 'sales_transaction' i.sale_order.id %}"><span class="fa fa-history pe-2 th"></span> History</a></li>
+                                                        <li><button type="button" href="{% url 'delete_saleorder' i.sale_order.id %}" class="dropdown-item fw-bold tb hide_table_text_d"><span class="fa fa-trash-alt tr" style="padding-inline-start: 0.1rem;padding-inline-end:0.7rem ;"></span> Delete</button></li>
                                                     </ul>
                                                 </div>
                                             </td>
@@ -660,6 +692,11 @@
                                                     <button style="border: none;background: none;" type="button" class="ropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
                                                         <span class="fa fa-ellipsis-v text-dark fs-1 ps-"></span>
                                                     </button>
+                                                    <ul class="dropdown-menu">
+                                                        <li><a class="dropdown-item fw-bold tb hide_table_text_v" href="{% url 'item_view_or_edit' first_item.id %}"><span class="fa fa-eye pe-2 tg"></span> View / Edit</a></li>
+                                                        <li><a class="dropdown-item fw-bold tb hide_table_text_v" href="{% url 'item_histories' first_item.id %}"><span class="fa fa-history pe-2 th"></span> History</a></li>
+                                                        <li><button type="button" href="{% url 'transaction_delete' first_item.id %}" class="dropdown-item fw-bold tb hide_table_text_d"><span class="fa fa-trash-alt tr" style="padding-inline-start: 0.1rem;padding-inline-end:0.7rem ;"></span> Delete</button></li>
+                                                    </ul>
                                                 </div>
                                             </td>
                                         </tr> 
@@ -685,6 +722,11 @@
                                                 <button style="border: none;background: none;" type="button" class="ropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
                                                     <span class="fa fa-ellipsis-v text-dark fs-1 ps-"></span>
                                                 </button>
+                                                <ul class="dropdown-menu">
+                                                    <li><a class="dropdown-item fw-bold tb hide_table_text_v" href="{% url 'item_view_or_edit' first_item.id %}"><span class="fa fa-eye pe-2 tg"></span> View / Edit</a></li>
+                                                    <li><a class="dropdown-item fw-bold tb hide_table_text_v" href="{% url 'item_histories' first_item.id %}"><span class="fa fa-history pe-2 th"></span> History</a></li>
+                                                    <li><button type="button" href="{% url 'transaction_delete' first_item.id %}" class="dropdown-item fw-bold tb hide_table_text_d"><span class="fa fa-trash-alt tr" style="padding-inline-start: 0.1rem;padding-inline-end:0.7rem ;"></span> Delete</button></li>
+                                                </ul>
                                             </div>
                                         </td>
                                     </tr> 
@@ -695,10 +737,10 @@
                                         <td class= "hide_table_text_in removefields" style="font-size: 20px; color: {% if first_item.item_opening_stock == 0 %}red{% else %} orange{% endif %}; vertical-align: middle;">&#8226;</td>
                                         <td class="text-center  px-0" style="white-space: nowrap;">Opening Stock</td>
                                         <td class="text-center  px-0" style="white-space: nowrap;"></td>
-                                        <td class="text-center  px-0" style="white-space: nowrap;">{{ first_item.item_name }}</td>
+                                        <td class="text-center  px-0" style="white-space: nowrap;"></td>
                                         <td class="text-center  px-0" style="white-space: nowrap;">{{ first_item.item_date|date:"d-m-Y" }}</td>
-                                        <td class="text-center  px-0" style="white-space: nowrap;">{{ first_item.item_opening_stock }}</td>
-                                        <td class="text-center  px-0" style="white-space: nowrap;">{{ first_item.item_at_price }}</td>
+                                        <td class="text-center  px-0" style="white-space: nowrap;">{{ first_item.item_opening_stock }} &nbsp;&nbsp;{{first_item.item_unit}}</td>
+                                        <td class="text-center  px-0" style="white-space: nowrap;">{{ first_item.item_at_price|floatformat:2 }}</td>
                                         <td class="text-center  px-0" style="white-space: nowrap;"></td>
                                         <td class="text-center  px-0" style="white-space: nowrap;">{{ Item_History.action }}</td>
                                         <td class="text-center  px-0" style="white-space: nowrap;">{{ Item_History.staff__first_name }} {{ Item_History.staff__last_name }}</td>
@@ -726,8 +768,8 @@
                                         <td class="text-center  px-0" style="white-space: nowrap;"></td>
                                         <td class="text-center  px-0" style="white-space: nowrap;"></td>
                                         <td class="text-center  px-0" style="white-space: nowrap;">{{ i.trans_date|date:"d-m-Y" }}</td>
-                                        <td class="text-center  px-0" style="white-space: nowrap;">{{ i.trans_qty }}</td>
-                                        <td class="text-center  px-0" style="white-space: nowrap;">{{ first_item.item_at_price }}</td>
+                                        <td class="text-center  px-0" style="white-space: nowrap;">{{ i.trans_qty }}&nbsp;&nbsp;{{first_item.item_unit}}</td>
+                                        <td class="text-center  px-0" style="white-space: nowrap;">{{ first_item.item_at_price|floatformat:2 }}</td>
                                         <td class="text-center  px-0" style="white-space: nowrap;"></td>
                                         <td class="text-center  px-0" style="white-space: nowrap;">{{ Item_History.action }}</td>
                                         <td class="text-center  px-0" style="white-space: nowrap;">{{ Item_History.staff__first_name }} {{ Item_History.staff__last_name }}</td>
@@ -1191,6 +1233,23 @@
             
         printWindow.print();
         
+    }
+
+
+    function deleteEstimate(id) {
+        swal({
+            title: "Are you sure?",
+            text: "Estimate and items details will be removed permanently.!",
+            icon: "warning",
+            buttons: true,
+            dangerMode: true,
+        }).then((willDelete) => {
+            if (willDelete) {
+            window.location.href = "{% url 'deleteEstimate' 0 %}".replace('0', parseInt(id));
+            } else {
+                // swal({ icon: "success", text: "Operation Aborted!" });
+            }
+        });
     }
 </script>
 

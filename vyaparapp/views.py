@@ -619,40 +619,40 @@ def items_list(request,pk):
   cmp = company.objects.get(id=staff.company.id)
   all_items = ItemModel.objects.filter(company=cmp) #updated - shemeem
   allmodules= modules_list.objects.get(company=staff.company,status='New')
-  # first_item = model_queries
-  # if pk == 0:
-  #   first_item = all_items.filter().first()
-  # elif pk != 0:
-  #   first_item = all_items.get(id=pk)
-  transactions = first_item = item_history = sales_orders = None
+  # first_item = None
+  if pk == 0:
+    first_item = all_items.filter().first()
+  elif pk != 0:
+    first_item = all_items.get(id=pk)
+  # transactions = first_item = item_history = sales_orders = None
   model_queries = {}
 
-  if pk != 0:
-    first_item = all_items.get(id=pk)
+  # if pk != 0:
+  #   first_item = all_items.get(id=pk)
 
-    item_history= Item_History.objects.filter(
-      Item= first_item,
-      company=cmp
-    ).values('Item', 'action' , 'staff__first_name' , 'staff__last_name').last()
+  item_history= Item_History.objects.filter(
+    Item= first_item,
+    company=cmp
+  ).values('Item', 'action' , 'staff__first_name' , 'staff__last_name').last()
 
-    
-    
-    if first_item:
-      transactions = TransactionModel.objects.filter(company = cmp,item=first_item.id).order_by('-trans_created_date')
+  
+  
+  if first_item:
+    transactions = TransactionModel.objects.filter(company = cmp,item=first_item.id).order_by('-trans_created_date')
 
-    models_to_check1 = [CreditNoteItem, PurchaseBillItem, purchasedebit1, PurchaseOrderItem]
-    models_to_check2 = [SalesInvoiceItem,Estimate_items, DeliveryChallanItems]
-    
+  models_to_check1 = [CreditNoteItem, PurchaseBillItem, purchasedebit1, PurchaseOrderItem]
+  models_to_check2 = [SalesInvoiceItem,Estimate_items, DeliveryChallanItems]
+  
 
-    for model in models_to_check1:
-        if model.objects.filter(company=staff.company.id, product=first_item.id).exists():
-            model_queries[model.__name__] = model.objects.filter(company=staff.company.id, product=first_item.id)
+  for model in models_to_check1:
+      if model.objects.filter(company=staff.company.id, product=first_item.id).exists():
+          model_queries[model.__name__] = model.objects.filter(company=staff.company.id, product=first_item.id)
 
-    for model in models_to_check2:
-        if model.objects.filter(company=staff.company.id, item=first_item.id).exists():
-            model_queries[model.__name__] = model.objects.filter(company=staff.company.id, item=first_item.id)
+  for model in models_to_check2:
+      if model.objects.filter(company=staff.company.id, item=first_item.id).exists():
+          model_queries[model.__name__] = model.objects.filter(company=staff.company.id, item=first_item.id)
 
-    sales_orders = sales_item.objects.filter(cmp=staff.company.id, product=first_item.id)
+  sales_orders = sales_item.objects.filter(cmp=staff.company.id, product=first_item.id)
 
   context = {
     'first_item':first_item,
@@ -668,6 +668,7 @@ def items_list(request,pk):
   }
   # try:
   if all_items == None or all_items == '' or first_item == None or first_item == '' or transactions == None or transactions == '':
+    print('yesssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss')
     return render(request,'company/items_create_first_item.html', context)
   return render(request,'company/items_list.html',context)
   # except:
