@@ -138,7 +138,6 @@ def estimate_quotation(request):
         action = 'Updated'
       dict = {'estimate':est,'history':history,'action'  :action, 'name' : name}
       estimates.append(dict)
-      print(history)
     context = {
       'staff':staff,'company':com,'allmodules':allmodules, 'estimates':estimates,
     }
@@ -611,7 +610,6 @@ def item_create(request):
   item_units = UnitModel.objects.filter(company = cmp) #updated - shemeem
   return render(request,'company/item_create.html',{'item_units':item_units,'company':cmp, 'staff':staff, 'allmodules' : allmodules})
 
-# @login_required(login_url='login')
 def items_list(request,pk):
   
   sid = request.session.get('staff_id')
@@ -619,40 +617,77 @@ def items_list(request,pk):
   cmp = company.objects.get(id=staff.company.id)
   all_items = ItemModel.objects.filter(company=cmp) #updated - shemeem
   allmodules= modules_list.objects.get(company=staff.company,status='New')
-  # first_item = None
+
   if pk == 0:
     first_item = all_items.filter().first()
   elif pk != 0:
     first_item = all_items.get(id=pk)
-  # transactions = first_item = item_history = sales_orders = None
+ 
   model_queries = {}
+  # history_queries = []
 
-  # if pk != 0:
-  #   first_item = all_items.get(id=pk)
 
   item_history= Item_History.objects.filter(
     Item= first_item,
     company=cmp
   ).values('Item', 'action' , 'staff__first_name' , 'staff__last_name').last()
 
-  
-  
   if first_item:
     transactions = TransactionModel.objects.filter(company = cmp,item=first_item.id).order_by('-trans_created_date')
 
   models_to_check1 = [CreditNoteItem, PurchaseBillItem, purchasedebit1, PurchaseOrderItem]
   models_to_check2 = [SalesInvoiceItem,Estimate_items, DeliveryChallanItems]
-  
 
+  history_models = {
+        'CreditNoteItem': (CreditNoteTransactionHistory, 'creditnote'),
+        'PurchaseBillItem': (PurchaseBillTransactionHistory, 'purchasebill'),
+        'purchasedebit1': (DebitnoteTransactionHistory, 'debitnote'),
+        'PurchaseOrderItem': (PurchaseOrderTransactionHistory, 'purchaseorder'),
+        'SalesInvoiceItem': (SalesInvoiceTransactionHistory, 'salesinvoice'),
+        'Estimate_items': (EstimateTransactionHistory, 'estimate'),
+        'DeliveryChallanItems': (DeliveryChallanTransactionHistory, 'challan'),
+        'sales_item': (saleorder_transaction, 'sales_order'),
+    }
+
+  def get_latest_history(model_instances, history_model, history_field):
+    for instance in model_instances.values():
+      filter_kwargs = {history_field: instance['id']}
+      history_entry = history_model.objects.filter(**filter_kwargs).last()
+
+      if history_entry:
+        staff_name = f"{history_entry.staff.first_name} {history_entry.staff.last_name}"
+        action = 'Created' if history_entry.action == 'Create' else 'Updated'
+        # print(instance)
+        # print(action)
+        # print(staff_name)
+
+        instance['action'] = action
+        instance['staff_name'] = staff_name
+        print(instance)
+
+      # print(model_instances.values())
+  
   for model in models_to_check1:
       if model.objects.filter(company=staff.company.id, product=first_item.id).exists():
-          model_queries[model.__name__] = model.objects.filter(company=staff.company.id, product=first_item.id)
-
+          model_instances = model.objects.filter(company=staff.company.id, product=first_item.id)
+          model_queries[model.__name__] = model_instances
+          history_model, history_field = history_models[model.__name__]
+          # model_queries[model.__name__] = model_instances
+          
   for model in models_to_check2:
       if model.objects.filter(company=staff.company.id, item=first_item.id).exists():
-          model_queries[model.__name__] = model.objects.filter(company=staff.company.id, item=first_item.id)
+          model_instances = model.objects.filter(company=staff.company.id, item=first_item.id)
+          model_queries[model.__name__] = model_instances
+          history_model, history_field = history_models[model.__name__]
+          get_latest_history(model_instances, history_model, history_field)
+          # model_queries[model.__name__] = model_instances
 
-  sales_orders = sales_item.objects.filter(cmp=staff.company.id, product=first_item.id)
+
+  salesorder_instance = sales_item.objects.filter(cmp=staff.company.id, product=first_item.id)
+  sales_orders = salesorder_instance
+  history_model, history_field = history_models['sales_item']
+  get_latest_history(salesorder_instance, history_model, history_field)
+  model_queries['sales_item'] = salesorder_instance
 
   context = {
     'first_item':first_item,
@@ -664,15 +699,13 @@ def items_list(request,pk):
     'Item_History' : item_history,
     'sales_orders' : sales_orders,
     "model_queries": model_queries,
-    
   }
-  # try:
-  if all_items == None or all_items == '' or first_item == None or first_item == '' or transactions == None or transactions == '':
-    print('yesssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss')
+  try:
+    if all_items == None or all_items == '' or first_item == None or first_item == '' or transactions == None or transactions == '':
+      return render(request,'company/items_create_first_item.html', context)
+    return render(request,'company/items_list.html',context)
+  except:
     return render(request,'company/items_create_first_item.html', context)
-  return render(request,'company/items_list.html',context)
-  # except:
-  #   return render(request,'company/items_create_first_item.html', context)
 
 
 # @login_required(login_url='login')
