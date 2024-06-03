@@ -599,17 +599,6 @@ def distributor_profile(request):
   return render(request,'distributor/distributor_profile.html',{'distributor':distributor,'terms':terms})
 
 # ========================================   ASHIKH V U (START) ======================================================
-
-# @login_required(login_url='login')
-def item_create(request):
-  sid = request.session.get('staff_id')
-  staff =  staff_details.objects.get(id=sid)
-  cmp = company.objects.get(id=staff.company.id)
-  allmodules=modules_list.objects.get(company=cmp,status = 'New')
-  # item_units = UnitModel.objects.filter(user=request.user.id)
-  item_units = UnitModel.objects.filter(company = cmp) #updated - shemeem
-  return render(request,'company/item_create.html',{'item_units':item_units,'company':cmp, 'staff':staff, 'allmodules' : allmodules})
-
 def items_list(request,pk):
   
   sid = request.session.get('staff_id')
@@ -624,9 +613,7 @@ def items_list(request,pk):
     first_item = all_items.get(id=pk)
  
   model_queries = {}
-  # history_queries = []
-
-
+ 
   item_history= Item_History.objects.filter(
     Item= first_item,
     company=cmp
@@ -649,45 +636,38 @@ def items_list(request,pk):
         'sales_item': (saleorder_transaction, 'sales_order'),
     }
 
-  def get_latest_history(model_instances, history_model, history_field):
-    for instance in model_instances.values():
-      filter_kwargs = {history_field: instance['id']}
+  def get_latest_history(model_instances, history_model, history_field, model_name):
+    for instance in model_instances:
+      filter_kwargs = {history_field: instance.id}
       history_entry = history_model.objects.filter(**filter_kwargs).last()
 
       if history_entry:
-        staff_name = f"{history_entry.staff.first_name} {history_entry.staff.last_name}"
-        action = 'Created' if history_entry.action == 'Create' else 'Updated'
-        # print(instance)
-        # print(action)
-        # print(staff_name)
+          staff_name = f"{history_entry.staff.first_name} {history_entry.staff.last_name}"
+          action = 'Created' if history_entry.action in ['Create', 'CREATED', 'Created'] else 'Updated'
+          instance.staff_name = staff_name
+          instance.action = action
 
-        instance['action'] = action
-        instance['staff_name'] = staff_name
-        print(instance)
-
-      # print(model_instances.values())
+          # Replace the model_queries entry with the updated instance
+          if model_name not in model_queries:
+              model_queries[model_name] = []
+          model_queries[model_name].append(instance)
   
+
   for model in models_to_check1:
       if model.objects.filter(company=staff.company.id, product=first_item.id).exists():
           model_instances = model.objects.filter(company=staff.company.id, product=first_item.id)
-          model_queries[model.__name__] = model_instances
           history_model, history_field = history_models[model.__name__]
-          # model_queries[model.__name__] = model_instances
-          
+          get_latest_history(model_instances, history_model, history_field, model.__name__)
+
   for model in models_to_check2:
       if model.objects.filter(company=staff.company.id, item=first_item.id).exists():
           model_instances = model.objects.filter(company=staff.company.id, item=first_item.id)
-          model_queries[model.__name__] = model_instances
           history_model, history_field = history_models[model.__name__]
-          get_latest_history(model_instances, history_model, history_field)
-          # model_queries[model.__name__] = model_instances
+          get_latest_history(model_instances, history_model, history_field, model.__name__)
 
-
-  salesorder_instance = sales_item.objects.filter(cmp=staff.company.id, product=first_item.id)
-  sales_orders = salesorder_instance
+  sales_orders = sales_item.objects.filter(cmp=staff.company.id, product=first_item.id)
   history_model, history_field = history_models['sales_item']
-  get_latest_history(salesorder_instance, history_model, history_field)
-  model_queries['sales_item'] = salesorder_instance
+  get_latest_history(sales_orders, history_model, history_field, 'sales_item')
 
   context = {
     'first_item':first_item,
@@ -699,6 +679,7 @@ def items_list(request,pk):
     'Item_History' : item_history,
     'sales_orders' : sales_orders,
     "model_queries": model_queries,
+     
   }
   try:
     if all_items == None or all_items == '' or first_item == None or first_item == '' or transactions == None or transactions == '':
@@ -706,6 +687,18 @@ def items_list(request,pk):
     return render(request,'company/items_list.html',context)
   except:
     return render(request,'company/items_create_first_item.html', context)
+
+
+# @login_required(login_url='login')
+def item_create(request):
+  sid = request.session.get('staff_id')
+  staff =  staff_details.objects.get(id=sid)
+  cmp = company.objects.get(id=staff.company.id)
+  allmodules=modules_list.objects.get(company=cmp,status = 'New')
+  # item_units = UnitModel.objects.filter(user=request.user.id)
+  item_units = UnitModel.objects.filter(company = cmp) #updated - shemeem
+  return render(request,'company/item_create.html',{'item_units':item_units,'company':cmp, 'staff':staff, 'allmodules' : allmodules})
+
 
 
 # @login_required(login_url='login')
@@ -5304,55 +5297,80 @@ def view_parties(request,pk):
   staff_id = request.session['staff_id']
   staff =  staff_details.objects.get(id=staff_id)
   Party=party.objects.filter(company=staff.company.id)
+
   if pk == 0:
       getparty = party.objects.filter(company=staff.company.id).first()
-  else:
+  elif pk != 0:
       getparty = party.objects.get(company=staff.company.id, id=pk)
   allmodules= modules_list.objects.get(company=staff.company,status='New')
-
 
   models_to_check1 = [PurchaseBill, PurchaseOrder, SalesInvoice, purchasedebit, PaymentOut,PaymentIn, CreditNote]
   models_to_check2 = [Estimate, DeliveryChallan]
 
-  history_models_to_check1 = {'PurchaseBill' : PurchaseBillTransactionHistory, 'PurchaseOrder' : PurchaseOrderTransactionHistory, 
-                              'SalesInvoice' : SalesInvoiceTransactionHistory, 'purchasedebit' : DebitnoteTransactionHistory, 
-                              'PaymentOut' : PaymentOutHistory,'PaymentIn' : PaymentInTransactionHistory, 
-                              'CreditNote' : CreditNoteTransactionHistory, 'Estimate' : EstimateTransactionHistory, 
-                              'DeliveryChallan' : DeliveryChallanTransactionHistory}
+  history_models_to_check = { 'PurchaseBill' : (PurchaseBillTransactionHistory, 'purchasebill'),
+                              'PurchaseOrder' : (PurchaseOrderTransactionHistory, 'purchaseorder'),
+                              'SalesInvoice' : (SalesInvoiceTransactionHistory, 'salesinvoice'),
+                              'purchasedebit' : (DebitnoteTransactionHistory, 'debitnote'),
+                              'PaymentOut' : (PaymentOutHistory,'paymentout'),
+                              'PaymentIn' : (PaymentInTransactionHistory,'payment'), 
+                              'CreditNote' : (CreditNoteTransactionHistory, 'creditnote'),
+                              'Estimate' : (EstimateTransactionHistory, 'estimate'),
+                              'DeliveryChallan' : (DeliveryChallanTransactionHistory, 'challan'),
+                              'salesorder': (saleorder_transaction, 'sales_order'),
+                              'Expense' : (saleorder_transaction, 'expense'),
+                              }
+  
+  primary_key_field_mapping = {
+        'purchasedebit': 'pdebitid',
+      }
+  
+  def get_latest_history(model_instances, history_model, history_field, model_name):
+    for instance in model_instances:
+
+      pk_field = primary_key_field_mapping.get(model_name, 'id')
+      
+      filter_kwargs = {history_field: getattr(instance, pk_field)}
+      history_entry = history_model.objects.filter(**filter_kwargs).last()
+      print(history_entry)
+      if history_entry:
+          if history_field != 'paymentout':
+            staff_name = f"{history_entry.staff.first_name} {history_entry.staff.last_name}"
+          else: 
+             staff_name = f"{history_entry.paymentout.staff.first_name} {history_entry.paymentout.staff.last_name}"
+          # print(staff_name)
+          action = 'Created' if history_entry.action in ['Create', 'CREATED', 'Created','created'] else 'Updated'
+          instance.staff_name = staff_name
+          instance.action = action
+
+          # Replace the model_queries entry with the updated instance
+          if model_name not in model_queries:
+              model_queries[model_name] = []
+          model_queries[model_name].append(instance)
+
 
   model_queries = {}
 
   for model in models_to_check1:
     if model.objects.filter(company=staff.company.id, party=getparty).exists():
-        model_queries[model.__name__] = model.objects.filter(company=staff.company.id, party=getparty)
-        for history_model_name, history_model in model_queries.items():
-          if model.__name__ == 'PurchaseBill':
-            purbill = PurchaseBillTransactionHistory.objects.filter(purchasebill__in = history_model).first()
-            # print(purbill)
-        # print(model_queries[model.__name__]['id'])
-        # history_query = model.objects.none() 
-        # for history_model_name, history_model in history_models_to_check1.items():
-        #     if model.__name__ == history_model_name:
-        #         if model.__name__ == 'PaymentOut':
-        #           pay_out = PaymentOut.objects.get(company=staff.company.id, id =  model_queries['PaymentOut'].id)
-        #           related_queryset = history_model.objects.filter(paymentout=pay_out)
-        #         related_queryset = history_model.objects.filter(company=staff.company.id)
-        #         latest_history = related_queryset.annotate(max_date=Max('id')).order_by('-max_date').first()
-        #         if latest_history:
-        #             history_query |= history_model.objects.filter(id=latest_history.id)
-        # model_queries[model.__name__ + '_history'] = history_query
+        model_instances = model.objects.filter(company=staff.company.id, party=getparty)
+        history_model, history_field = history_models_to_check[model.__name__]
+        print(history_model, " is " , history_field)
+        get_latest_history(model_instances, history_model, history_field, model.__name__)
 
-  # for model in models_to_check2:
-  #     if model.objects.filter(company=staff.company.id, party_name=getparty.party_name).exists():
-  #         model_queries[model.__name__] = model.objects.filter(company=staff.company.id, party_name=getparty.party_name)
-  #         for history_model_name, history_model in history_models_to_check1.items():
-  #             if history_model_name == model.__name__:
-  #                 latest_history = history_model.objects.filter(company=staff.company.id, estimate__in=model_queries[model.__name__]).annotate(max_id=Max('id')).order_by('-max_id').first()
-  #                 if latest_history:
-  #                     model_queries[model.__name__ + '_history'] = latest_history
-  expenses = Expense.objects.filter(staff_id = staff, party_id = getparty).values()
-  sales_orders = salesorder.objects.filter(comp = staff.company.id, party = getparty).values()
+  for model in models_to_check2:
+      if model.objects.filter(company=staff.company.id, party_name=getparty.party_name).exists():
+          model_instances = model.objects.filter(company=staff.company.id, party_name=getparty.party_name)
+          history_model, history_field = history_models_to_check[model.__name__]
+          get_latest_history(model_instances, history_model, history_field, model.__name__)
+
   
+  sales_orders = salesorder.objects.filter(comp=staff.company.id, party = getparty)
+  history_model, history_field = history_models_to_check['salesorder']
+  get_latest_history(sales_orders, history_model, history_field, 'salesorder')
+
+  expenses = Expense.objects.filter(staff_id = staff, party_id = getparty)
+  history_model, history_field = history_models_to_check['Expense']
+  get_latest_history(expenses, history_model, history_field, 'Expense')
 
   
   party_histories= party_history.objects.filter(

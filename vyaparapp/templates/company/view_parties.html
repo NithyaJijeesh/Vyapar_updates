@@ -465,9 +465,10 @@
                                                         <td class="text-center  px-0" style="white-space: nowrap;">{{ model.billdate|date:"d-m-Y" }}</td>
                                                         <td class="text-center  px-0" style="white-space: nowrap;">₹ {{ model.grandtotal|floatformat:2 }}</td>
                                                         <td class="text-center  px-0" style="white-space: nowrap;"></td>
-                                                             <td class="text-center  px-0" style="white-space: nowrap;">{{ latest_history.action }}</td>
-                                                            <td class="text-center  px-0" style="white-space: nowrap;">{{ latest_history.staff }}</td>
-                                                        <td class="px-0 pt-3 m-0 text-center removefields " style="white-space: nowrap;">
+                                                        <td class="text-center px-0" style="white-space: nowrap; color: {% if model.action == 'Created' %}green{% elif model.action == 'Updated' %}red{% else %}black{% endif %};">
+                                                            {{ model.action }}
+                                                        </td>                                                    
+                                                        <td class="text-center  px-0" style="white-space: nowrap;">{{ model.staff_name }}</td>                                                        <td class="px-0 pt-3 m-0 text-center removefields " style="white-space: nowrap;">
                                                             <div class="btn-group mb-1">
                                                                 <button style="border: none;background: none;" type="button" class="ropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
                                                                     <span class="fa fa-ellipsis-v text-dark fs-1 ps-"></span>

@@ -490,8 +490,7 @@
                                     <!-- -----purchase bill ------->
                                     {% if model_queries.PurchaseBillItem %}
                                         {% for model in model_queries.PurchaseBillItem %}
-                                        {{model.id}}
-                                            <tr>
+                                             <tr>
                                                     <td style="font-size: 20px; vertical-align: middle;; color: rgb(57, 57, 98)" class="removefields">&#8226;</td>
                                                     <td class="text-center  px-0" style="white-space: nowrap;">Purchase Bill</td>
                                                     <td class="text-center  px-0" style="white-space: nowrap;">{{ model.purchasebill.billno }}</td>
@@ -500,8 +499,10 @@
                                                     <td class="text-center  px-0" style="white-space: nowrap;">{{ model.qty }} &nbsp;&nbsp; {{ first_item.item_unit }}</td>
                                                     <td class="text-center  px-0" style="white-space: nowrap;">{{ model.total|floatformat:2 }}</td>
                                                     <td class="text-center  px-0" style="white-space: nowrap;"></td>
+                                                    <td class="text-center px-0" style="white-space: nowrap; color: {% if model.action == 'Created' %}green{% elif model.action == 'Updated' %}red{% else %}black{% endif %};">
+                                                        {{ model.action }}
+                                                    </td>                                                    
                                                     <td class="text-center  px-0" style="white-space: nowrap;">{{ model.staff_name }}</td>
-                                                    <td class="text-center  px-0" style="white-space: nowrap;">{{ model.action }}</td>
                                                     <td class="px-0 pt-3 m-0 text-center removefields " style="white-space: nowrap;">
                                                         <div class="btn-group mb-1">
                                                             <button style="border: none;background: none;" type="button" class="ropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
@@ -531,8 +532,9 @@
                                                     <td class="text-center  px-0" style="white-space: nowrap;">{{ model.qty }} &nbsp;&nbsp; {{ first_item.item_unit }}</td>
                                                     <td class="text-center  px-0" style="white-space: nowrap;">{{ model.total|floatformat:2 }}</td>
                                                     <td class="text-center  px-0" style="white-space: nowrap;"></td>
-                                                    <td class="text-center  px-0" style="white-space: nowrap;"></td>
-                                                    <td class="text-center  px-0" style="white-space: nowrap;"></td>
+                                                    <td class="text-center px-0" style="white-space: nowrap; color: {% if model.action == 'Created' %}green{% elif model.action == 'Updated' %}red{% else %}black{% endif %};">
+                                                        {{ model.action }}
+                                                    </td>                                                    <td class="text-center  px-0" style="white-space: nowrap;">{{ model.staff_name }}</td>
                                                     <td class="px-0 pt-3 m-0 text-center removefields " style="white-space: nowrap;">
                                                         <div class="btn-group mb-1">
                                                             <button style="border: none;background: none;" type="button" class="ropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
@@ -562,8 +564,9 @@
                                                     <td class="text-center  px-0" style="white-space: nowrap;">{{ model.qty }} &nbsp;&nbsp; {{ first_item.item_unit }}</td>
                                                     <td class="text-center  px-0" style="white-space: nowrap;">{{ model.total|floatformat:2 }}</td>
                                                     <td class="text-center  px-0" style="white-space: nowrap;"></td>
-                                                    <td class="text-center  px-0" style="white-space: nowrap;"></td>
-                                                    <td class="text-center  px-0" style="white-space: nowrap;"></td>
+                                                    <td class="text-center px-0" style="white-space: nowrap; color: {% if model.action == 'Created' %}green{% elif model.action == 'Updated' %}red{% else %}black{% endif %};">
+                                                        {{ model.action }}
+                                                    </td>                                                    <td class="text-center  px-0" style="white-space: nowrap;">{{ model.staff_name }}</td>
                                                     <td class="px-0 pt-3 m-0 text-center removefields " style="white-space: nowrap;">
                                                         <div class="btn-group mb-1">
                                                             <button style="border: none;background: none;" type="button" class="ropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
@@ -594,8 +597,9 @@
                                                     <td class="text-center  px-0" style="white-space: nowrap;">{{ model.quantity }} &nbsp;&nbsp; {{ first_item.item_unit }}</td>
                                                     <td class="text-center  px-0" style="white-space: nowrap;">{{ model.rate|floatformat:2 }}</td>
                                                     <td class="text-center  px-0" style="white-space: nowrap;"></td>
-                                                    <td class="text-center  px-0" style="white-space: nowrap;"></td>
-                                                    <td class="text-center  px-0" style="white-space: nowrap;"></td>
+                                                    <td class="text-center px-0" style="white-space: nowrap; color: {% if model.action == 'Created' %}green{% elif model.action == 'Updated' %}red{% else %}black{% endif %};">
+                                                        {{ model.action }}
+                                                    </td>                                                    <td class="text-center  px-0" style="white-space: nowrap;">{{ model.staff_name }}</td>
                                                     <td class="px-0 pt-3 m-0 text-center removefields " style="white-space: nowrap;">
                                                         <div class="btn-group mb-1">
                                                             <button style="border: none;background: none;" type="button" class="ropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
@@ -626,8 +630,9 @@
                                                     <td class="text-center  px-0" style="white-space: nowrap;">{{ model.quantity }} &nbsp;&nbsp; {{first_item.item_unit}}</td>
                                                     <td class="text-center  px-0" style="white-space: nowrap;">{{ model.price|floatformat:2 }}</td>
                                                     <td class="text-center  px-0" style="white-space: nowrap;"></td>
-                                                    <td class="text-center  px-0" style="white-space: nowrap;"></td>
-                                                    <td class="text-center  px-0" style="white-space: nowrap;"></td>
+                                                    <td class="text-center px-0" style="white-space: nowrap; color: {% if model.action == 'Created' %}green{% elif model.action == 'Updated' %}red{% else %}black{% endif %};">
+                                                        {{ model.action }}
+                                                    </td>                                                    <td class="text-center  px-0" style="white-space: nowrap;">{{ model.staff_name }}</td>
                                                     <td class="px-0 pt-3 m-0 text-center removefields " style="white-space: nowrap;">
                                                         <div class="btn-group mb-1">
                                                             <button style="border: none;background: none;" type="button" class="ropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
@@ -658,8 +663,10 @@
                                             <td class="text-center  px-0" style="white-space: nowrap;">{{ i.qty }} &nbsp;&nbsp; {{first_item.item_unit}}</td>
                                             <td class="text-center  px-0" style="white-space: nowrap;">{{ i.price|floatformat:2 }}</td>
                                             <td class="text-center  px-0" style="white-space: nowrap;"></td>
-                                            <td class="text-center  px-0" style="white-space: nowrap;"></td>
-                                            <td class="text-center  px-0" style="white-space: nowrap;"></td>
+                                            <td class="text-center px-0" style="white-space: nowrap; color: {% if i.action == 'Created' %}green{% elif i.action == 'Updated' %}red{% else %}black{% endif %};">
+                                                {{ i.action }}
+                                            </td>
+                                            <td class="text-center  px-0" style="white-space: nowrap;">{{ i.staff_name }}</td>
                                             <td class="px-0 pt-3 m-0 text-center removefields " style="white-space: nowrap;">
                                                 <div class="btn-group mb-1">
                                                     <button style="border: none;background: none;" type="button" class="ropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
@@ -690,8 +697,11 @@
                                             <td class="text-center  px-0" style="white-space: nowrap;">{{ model.quantity }} &nbsp;&nbsp; {{first_item.item_unit}}</td>
                                             <td class="text-center  px-0" style="white-space: nowrap;">{{ model.price|floatformat:2 }}</td>
                                             <td class="text-center  px-0" style="white-space: nowrap;"></td>
-                                            <td class="text-center  px-0" style="white-space: nowrap;"></td>
-                                            <td class="text-center  px-0" style="white-space: nowrap;"></td>
+                                            <td class="text-center px-0" style="white-space: nowrap; color: {% if model.action == 'Created' %}green{% elif model.action == 'Updated' %}red{% else %}black{% endif %};">
+                                                {{ model.action }}
+                                            </td>
+                                            
+                                            <td class="text-center  px-0" style="white-space: nowrap;">{{ model.staff_name }}</td>
                                             <td class="px-0 pt-3 m-0 text-center removefields " style="white-space: nowrap;">
                                                 <div class="btn-group mb-1">
                                                     <button style="border: none;background: none;" type="button" class="ropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
@@ -722,8 +732,10 @@
                                         <td class="text-center  px-0" style="white-space: nowrap;">{{ model.qty }} &nbsp;&nbsp; {{first_item.item_unit}}</td>
                                         <td class="text-center  px-0" style="white-space: nowrap;">{{ model.total|floatformat:2 }}</td>
                                         <td class="text-center  px-0" style="white-space: nowrap;"></td>
-                                        <td class="text-center  px-0" style="white-space: nowrap;"></td>
-                                        <td class="text-center  px-0" style="white-space: nowrap;"></td>
+                                        <td class="text-center px-0" style="white-space: nowrap; color: {% if model.action == 'Created' %}green{% elif model.action == 'Updated' %}red{% else %}black{% endif %};">
+                                            {{ model.action }}
+                                        </td>                                        
+                                        <td class="text-center  px-0" style="white-space: nowrap;">{{ model.staff_name }}</td>
                                         <td class="px-0 pt-3 m-0 text-center removefields " style="white-space: nowrap;">
                                             <div class="btn-group mb-1">
                                                 <button style="border: none;background: none;" type="button" class="ropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
@@ -751,7 +763,9 @@
                                         <td class="text-center  px-0" style="white-space: nowrap;">{{ first_item.item_opening_stock }} &nbsp;&nbsp;{{first_item.item_unit}}</td>
                                         <td class="text-center  px-0" style="white-space: nowrap;">{{ first_item.item_at_price|floatformat:2 }}</td>
                                         <td class="text-center  px-0" style="white-space: nowrap;"></td>
-                                        <td class="text-center  px-0" style="white-space: nowrap;">{{ Item_History.action }}</td>
+                                         <td class="text-center px-0" style="white-space: nowrap; color: {% if Item_History.action == 'Created' %}green{% elif Item_History.action == 'Updated' %}red{% else %}black{% endif %};">
+                                            {{ Item_History.action }}
+                                        </td>
                                         <td class="text-center  px-0" style="white-space: nowrap;">{{ Item_History.staff__first_name }} {{ Item_History.staff__last_name }}</td>
                                         <td class="px-0 pt-3 m-0 text-center removefields" style="white-space: nowrap;">
                                             <div class="btn-group mb-1">
@@ -780,7 +794,9 @@
                                         <td class="text-center  px-0" style="white-space: nowrap;">{{ i.trans_qty }}&nbsp;&nbsp;{{first_item.item_unit}}</td>
                                         <td class="text-center  px-0" style="white-space: nowrap;">{{ first_item.item_at_price|floatformat:2 }}</td>
                                         <td class="text-center  px-0" style="white-space: nowrap;"></td>
-                                        <td class="text-center  px-0" style="white-space: nowrap;">{{ Item_History.action }}</td>
+                                        <td class="text-center px-0" style="white-space: nowrap; color: {% if Item_History.action == 'Created' %}green{% elif Item_History.action == 'Updated' %}red{% else %}black{% endif %};">
+                                            {{ Item_History.action }}
+                                        </td>
                                         <td class="text-center  px-0" style="white-space: nowrap;">{{ Item_History.staff__first_name }} {{ Item_History.staff__last_name }}</td>
                                         <td class="px-0 pt-3 m-0 text-center removefields " style="white-space: nowrap;">
                                             <div class="btn-group mb-1">
