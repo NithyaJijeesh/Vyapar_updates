@@ -5317,7 +5317,7 @@ def view_parties(request,pk):
                               'Estimate' : (EstimateTransactionHistory, 'estimate'),
                               'DeliveryChallan' : (DeliveryChallanTransactionHistory, 'challan'),
                               'salesorder': (saleorder_transaction, 'sales_order'),
-                              'Expense' : (saleorder_transaction, 'expense'),
+                              'Expense' : (ExpenseHistory, 'expense'),
                               }
   
   primary_key_field_mapping = {
@@ -5325,20 +5325,20 @@ def view_parties(request,pk):
       }
   
   def get_latest_history(model_instances, history_model, history_field, model_name):
-    for instance in model_instances:
 
+    for instance in model_instances:
       pk_field = primary_key_field_mapping.get(model_name, 'id')
-      
-      filter_kwargs = {history_field: getattr(instance, pk_field)}
+      filter_kwargs = { history_field: getattr(instance, pk_field) }
       history_entry = history_model.objects.filter(**filter_kwargs).last()
-      print(history_entry)
+
       if history_entry:
           if history_field != 'paymentout':
             staff_name = f"{history_entry.staff.first_name} {history_entry.staff.last_name}"
           else: 
-             staff_name = f"{history_entry.paymentout.staff.first_name} {history_entry.paymentout.staff.last_name}"
-          # print(staff_name)
+            staff_name = f"{history_entry.paymentout.staff.first_name} {history_entry.paymentout.staff.last_name}"
+
           action = 'Created' if history_entry.action in ['Create', 'CREATED', 'Created','created'] else 'Updated'
+
           instance.staff_name = staff_name
           instance.action = action
 
@@ -5347,28 +5347,51 @@ def view_parties(request,pk):
               model_queries[model_name] = []
           model_queries[model_name].append(instance)
 
-
+  purchase_total = sales_total  = 0
+  
   model_queries = {}
 
   for model in models_to_check1:
     if model.objects.filter(company=staff.company.id, party=getparty).exists():
         model_instances = model.objects.filter(company=staff.company.id, party=getparty)
+        for mod in model_instances:
+          if model.__name__ in ['PurchaseBill', 'PurchaseOrder', 'PaymentOut']:
+              purchase_total += float(mod.balance)
+
+          elif model.__name__ == 'purchasedebit':
+              purchase_total += float(mod.balance_amount)
+
+          elif model.__name__ == 'SalesInvoice':
+              sales_total += float(mod.totalbalance)
+
+          elif model.__name__ in ['PaymentIn', 'CreditNote']:
+              sales_total += float(mod.balance)
+        
         history_model, history_field = history_models_to_check[model.__name__]
-        print(history_model, " is " , history_field)
         get_latest_history(model_instances, history_model, history_field, model.__name__)
+
 
   for model in models_to_check2:
       if model.objects.filter(company=staff.company.id, party_name=getparty.party_name).exists():
           model_instances = model.objects.filter(company=staff.company.id, party_name=getparty.party_name)
+          for mod in model_instances:
+            if model.__name__ == model.__name__ in ['Estimate' , 'DeliveryChallan']:
+              sales_total += float(mod.total_amount)
           history_model, history_field = history_models_to_check[model.__name__]
           get_latest_history(model_instances, history_model, history_field, model.__name__)
 
-  
+
+
   sales_orders = salesorder.objects.filter(comp=staff.company.id, party = getparty)
+  for sales in sales_orders:
+     sales_total += float(sales.balance)
   history_model, history_field = history_models_to_check['salesorder']
   get_latest_history(sales_orders, history_model, history_field, 'salesorder')
 
-  expenses = Expense.objects.filter(staff_id = staff, party_id = getparty)
+
+  expenses = Expense.objects.filter(staff_id__company_id= staff.company.id, party_id=getparty)
+  for exp in expenses:
+     purchase_total += float(exp.balance)
   history_model, history_field = history_models_to_check['Expense']
   get_latest_history(expenses, history_model, history_field, 'Expense')
 
@@ -5377,6 +5400,9 @@ def view_parties(request,pk):
     party=getparty,
     company=staff.company
   ).values('party', 'action' , 'staff__first_name' , 'staff__last_name').last()
+
+  total_partybalance = - float(getparty.openingbalance) if getparty.payment == 'To Pay'  else float(getparty.openingbalance)
+  total_partybalance +=  (sales_total  - purchase_total)
 
   context = { 
               'staff':staff,
@@ -5387,6 +5413,7 @@ def view_parties(request,pk):
               'model_queries' :model_queries,
               'expenses' : expenses,
               'sales_orders' : sales_orders,
+              'total_partybalance' : total_partybalance
              }
   return render(request, 'company/view_parties.html',context)
 

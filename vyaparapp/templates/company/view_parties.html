@@ -464,11 +464,12 @@
                                                         <td class="text-center  px-0" style="white-space: nowrap;">{{ model.billno }}</td>
                                                         <td class="text-center  px-0" style="white-space: nowrap;">{{ model.billdate|date:"d-m-Y" }}</td>
                                                         <td class="text-center  px-0" style="white-space: nowrap;">₹ {{ model.grandtotal|floatformat:2 }}</td>
-                                                        <td class="text-center  px-0" style="white-space: nowrap;"></td>
+                                                        <td class="text-center  px-0" style="white-space: nowrap;">₹ {{ total_partybalance|floatformat:2}}</td>
                                                         <td class="text-center px-0" style="white-space: nowrap; color: {% if model.action == 'Created' %}green{% elif model.action == 'Updated' %}red{% else %}black{% endif %};">
                                                             {{ model.action }}
                                                         </td>                                                    
-                                                        <td class="text-center  px-0" style="white-space: nowrap;">{{ model.staff_name }}</td>                                                        <td class="px-0 pt-3 m-0 text-center removefields " style="white-space: nowrap;">
+                                                        <td class="text-center  px-0" style="white-space: nowrap;">{{ model.staff_name }}</td>        
+                                                        <td class="px-0 pt-3 m-0 text-center removefields " style="white-space: nowrap;">
                                                             <div class="btn-group mb-1">
                                                                 <button style="border: none;background: none;" type="button" class="ropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
                                                                     <span class="fa fa-ellipsis-v text-dark fs-1 ps-"></span>
@@ -494,9 +495,11 @@
                                                         <td class="text-center  px-0" style="white-space: nowrap;">{{ model.orderno }}</td>
                                                         <td class="text-center  px-0" style="white-space: nowrap;">{{ model.orderdate|date:"d-m-Y" }}</td>
                                                         <td class="text-center  px-0" style="white-space: nowrap;">₹ {{ model.grandtotal|floatformat:2 }}</td>
-                                                        <td class="text-center  px-0" style="white-space: nowrap;"></td>
-                                                        <td class="text-center  px-0" style="white-space: nowrap;"></td>
-                                                        <td class="text-center  px-0" style="white-space: nowrap;"></td>
+                                                        <td class="text-center  px-0" style="white-space: nowrap;">₹ {{ total_partybalance|floatformat:2}}</td>
+                                                        <td class="text-center px-0" style="white-space: nowrap; color: {% if model.action == 'Created' %}green{% elif model.action == 'Updated' %}red{% else %}black{% endif %};">
+                                                            {{ model.action }}
+                                                        </td>                                                    
+                                                        <td class="text-center  px-0" style="white-space: nowrap;">{{ model.staff_name }}</td>    
                                                         <td class="px-0 pt-3 m-0 text-center removefields " style="white-space: nowrap;">
                                                             <div class="btn-group mb-1">
                                                                 <button style="border: none;background: none;" type="button" class="ropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
@@ -523,9 +526,11 @@
                                                         <td class="text-center  px-0" style="white-space: nowrap;">{{ model.reference_number }}</td>
                                                         <td class="text-center  px-0" style="white-space: nowrap;">{{ model.debitdate|date:"d-m-Y" }}</td>
                                                         <td class="text-center  px-0" style="white-space: nowrap;">₹ {{ model.grandtotal|floatformat:2 }}</td>
-                                                        <td class="text-center  px-0" style="white-space: nowrap;"></td>
-                                                        <td class="text-center  px-0" style="white-space: nowrap;"></td>
-                                                        <td class="text-center  px-0" style="white-space: nowrap;"></td>
+                                                        <td class="text-center  px-0" style="white-space: nowrap;">₹ {{ total_partybalance|floatformat:2}}</td>
+                                                        <td class="text-center px-0" style="white-space: nowrap; color: {% if model.action == 'Created' %}green{% elif model.action == 'Updated' %}red{% else %}black{% endif %};">
+                                                            {{ model.action }}
+                                                        </td>                                                    
+                                                        <td class="text-center  px-0" style="white-space: nowrap;">{{ model.staff_name }}</td> 
                                                         <td class="px-0 pt-3 m-0 text-center removefields " style="white-space: nowrap;">
                                                             <div class="btn-group mb-1">
                                                                 <button style="border: none;background: none;" type="button" class="ropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
@@ -552,10 +557,13 @@
                                                         <td class="text-center  px-0" style="white-space: nowrap;">{{ model.rec_no }}</td>
                                                         <td class="text-center  px-0" style="white-space: nowrap;">{{ model.date|date:"d-m-Y" }}</td>
                                                         <td class="text-center  px-0" style="white-space: nowrap;">₹ {{ model.total_amount|floatformat:2 }}</td>
-                                                        <td class="text-center  px-0" style="white-space: nowrap;"></td>
-                                                        <td class="text-center  px-0" style="white-space: nowrap;"></td>
-                                                        <td class="text-center  px-0" style="white-space: nowrap;"></td>
+                                                        <td class="text-center  px-0" style="white-space: nowrap;">₹ {{ total_partybalance|floatformat:2}}</td>
+                                                        <td class="text-center px-0" style="white-space: nowrap; color: {% if model.action == 'Created' %}green{% elif model.action == 'Updated' %}red{% else %}black{% endif %};">
+                                                            {{ model.action }}
+                                                        </td>                                                    
+                                                        <td class="text-center  px-0" style="white-space: nowrap;">{{ model.staff_name }}</td>   
                                                         <td class="px-0 pt-3 m-0 text-center removefields " style="white-space: nowrap;">
+
                                                             <div class="btn-group mb-1">
                                                                 <button style="border: none;background: none;" type="button" class="ropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
                                                                     <span class="fa fa-ellipsis-v text-dark fs-1 ps-"></span>
@@ -582,9 +590,12 @@
                                                         <td class="text-center  px-0" style="white-space: nowrap;">{{ model.invoice_no }}</td>
                                                         <td class="text-center  px-0" style="white-space: nowrap;">{{ model.date|date:"d-m-Y" }}</td>
                                                         <td class="text-center  px-0" style="white-space: nowrap;">₹ {{ model.total_taxamount|floatformat:2 }}</td>
-                                                        <td class="text-center  px-0" style="white-space: nowrap;"></td>
-                                                        <td class="text-center  px-0" style="white-space: nowrap;"></td>
-                                                        <td class="text-center  px-0" style="white-space: nowrap;"></td>
+                                                        <td class="text-center  px-0" style="white-space: nowrap;">₹ {{ total_partybalance|floatformat:2}}</td>
+                                                        <td class="text-center px-0" style="white-space: nowrap; color: {% if model.action == 'Created' %}green{% elif model.action == 'Updated' %}red{% else %}black{% endif %};">
+                                                            {{ model.action }}
+                                                        </td>                   
+                                                        <td class="text-center  px-0" style="white-space: nowrap;">{{ model.staff_name }}</td>        
+                                
                                                         <td class="px-0 pt-3 m-0 text-center removefields " style="white-space: nowrap;">
                                                             <div class="btn-group mb-1">
                                                                 <button style="border: none;background: none;" type="button" class="ropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
@@ -611,9 +622,12 @@
                                                             <td class="text-center  px-0" style="white-space: nowrap;">{{ model.ref_no}}</td>
                                                             <td class="text-center  px-0" style="white-space: nowrap;">{{ model.date|date:"d-m-Y" }}</td>
                                                             <td class="text-center  px-0" style="white-space: nowrap;">₹ {{ model.total_amount|floatformat:2 }}</td>
-                                                            <td class="text-center  px-0" style="white-space: nowrap;"></td>
-                                                            <td class="text-center  px-0" style="white-space: nowrap;"></td>
-                                                            <td class="text-center  px-0" style="white-space: nowrap;"></td>
+                                                            <td class="text-center  px-0" style="white-space: nowrap;">₹ {{ total_partybalance|floatformat:2}}</td>
+                                                            <td class="text-center px-0" style="white-space: nowrap; color: {% if model.action == 'Created' %}green{% elif model.action == 'Updated' %}red{% else %}black{% endif %};">
+                                                                {{ model.action }}
+                                                            </td>                       
+
+                                                            <td class="text-center  px-0" style="white-space: nowrap;">{{ model.staff_name }}</td>      
                                                             <td class="px-0 pt-3 m-0 text-center removefields " style="white-space: nowrap;">
                                                                 <div class="btn-group mb-1">
                                                                     <button style="border: none;background: none;" type="button" class="ropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
@@ -641,9 +655,11 @@
                                                     <td class="text-center  px-0" style="white-space: nowrap;">{{ i.orderno}}</td>
                                                     <td class="text-center  px-0" style="white-space: nowrap;">{{ i.orderdate|date:"d-m-Y" }}</td>
                                                     <td class="text-center  px-0" style="white-space: nowrap;">₹ {{ i.grandtotal|floatformat:2 }}</td>
-                                                    <td class="text-center  px-0" style="white-space: nowrap;"></td>
-                                                    <td class="text-center  px-0" style="white-space: nowrap;"></td>
-                                                    <td class="text-center  px-0" style="white-space: nowrap;"></td>
+                                                    <td class="text-center  px-0" style="white-space: nowrap;">₹ {{ total_partybalance|floatformat:2}}</td>
+                                                    <td class="text-center px-0" style="white-space: nowrap; color: {% if i.action == 'Created' %}green{% elif i.action == 'Updated' %}red{% else %}black{% endif %};">
+                                                        {{ i.action }}
+                                                    </td>                                                    
+                                                    <td class="text-center  px-0" style="white-space: nowrap;">{{ i.staff_name }}</td>        
                                                     <td class="px-0 pt-3 m-0 text-center removefields " style="white-space: nowrap;">
                                                         <div class="btn-group mb-1">
                                                             <button style="border: none;background: none;" type="button" class="ropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
@@ -670,9 +686,11 @@
                                                 <td class="text-center  px-0" style="white-space: nowrap;">{{ i.EXP_NO}}</td>
                                                 <td class="text-center  px-0" style="white-space: nowrap;">{{ i.expense_date|date:"d-m-Y" }}</td>
                                                 <td class="text-center  px-0" style="white-space: nowrap;">₹ {{ i.total|floatformat:2 }}</td>
-                                                <td class="text-center  px-0" style="white-space: nowrap;"></td>
-                                                <td class="text-center  px-0" style="white-space: nowrap;"></td>
-                                                <td class="text-center  px-0" style="white-space: nowrap;"></td>
+                                                <td class="text-center  px-0" style="white-space: nowrap;">₹ {{ total_partybalance|floatformat:2}}</td>
+                                                <td class="text-center px-0" style="white-space: nowrap; color: {% if i.action == 'Created' %}green{% elif i.action == 'Updated' %}red{% else %}black{% endif %};">
+                                                    {{ i.action }}
+                                                </td>                                                    
+                                                <td class="text-center  px-0" style="white-space: nowrap;">{{ i.staff_name }}</td>     
                                                 <td class="px-0 pt-3 m-0 text-center removefields " style="white-space: nowrap;">
                                                     <div class="btn-group mb-1">
                                                         <button style="border: none;background: none;" type="button" class="ropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
@@ -698,9 +716,11 @@
                                                         <td class="text-center  px-0" style="white-space: nowrap;">{{ model.challan_no}}</td>
                                                         <td class="text-center  px-0" style="white-space: nowrap;">{{ model.date|date:"d-m-Y" }}</td>
                                                         <td class="text-center  px-0" style="white-space: nowrap;">₹ {{ model.total_amount|floatformat:2 }}</td>
-                                                        <td class="text-center  px-0" style="white-space: nowrap;"></td>
-                                                        <td class="text-center  px-0" style="white-space: nowrap;"></td>
-                                                        <td class="text-center  px-0" style="white-space: nowrap;"></td>
+                                                        <td class="text-center  px-0" style="white-space: nowrap;">₹ {{ total_partybalance|floatformat:2}}</td>
+                                                        <td class="text-center px-0" style="white-space: nowrap; color: {% if model.action == 'Created' %}green{% elif model.action == 'Updated' %}red{% else %}black{% endif %};">
+                                                            {{ model.action }}
+                                                        </td>                                                    
+                                                        <td class="text-center  px-0" style="white-space: nowrap;">{{ model.staff_name }}</td>     
                                                         <td class="px-0 pt-3 m-0 text-center removefields " style="white-space: nowrap;">
                                                             <div class="btn-group mb-1">
                                                                 <button style="border: none;background: none;" type="button" class="ropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
@@ -728,9 +748,11 @@
                                                         <td class="text-center  px-0" style="white-space: nowrap;">{{ model.retrn_no}}</td>
                                                         <td class="text-center  px-0" style="white-space: nowrap;">{{ model.date|date:"d-m-Y" }}</td>
                                                         <td class="text-center  px-0" style="white-space: nowrap;">₹ {{ model.grandtotal|floatformat:2 }}</td>
-                                                        <td class="text-center  px-0" style="white-space: nowrap;"></td>
-                                                        <td class="text-center  px-0" style="white-space: nowrap;"></td>
-                                                        <td class="text-center  px-0" style="white-space: nowrap;"></td>
+                                                        <td class="text-center  px-0" style="white-space: nowrap;">₹ {{ total_partybalance|floatformat:2}}</td>
+                                                        <td class="text-center px-0" style="white-space: nowrap; color: {% if model.action == 'Created' %}green{% elif model.action == 'Updated' %}red{% else %}black{% endif %};">
+                                                            {{ model.action }}
+                                                        </td>                                                    
+                                                        <td class="text-center  px-0" style="white-space: nowrap;">{{ model.staff_name }}</td>        
                                                         <td class="px-0 pt-3 m-0 text-center removefields " style="white-space: nowrap;">
                                                             <div class="btn-group mb-1">
                                                                 <button style="border: none;background: none;" type="button" class="ropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
@@ -758,9 +780,11 @@
                                                         <td class="text-center  px-0" style="white-space: nowrap;">{{ model.billno}}</td>
                                                         <td class="text-center  px-0" style="white-space: nowrap;">{{ model.billdate|date:"d-m-Y" }}</td>
                                                         <td class="text-center  px-0" style="white-space: nowrap;">₹ {{ model.balance|floatformat:2 }}</td>
-                                                        <td class="text-center  px-0" style="white-space: nowrap;"></td>
-                                                        <td class="text-center  px-0" style="white-space: nowrap;"></td>
-                                                        <td class="text-center  px-0" style="white-space: nowrap;"></td>
+                                                        <td class="text-center  px-0" style="white-space: nowrap;">₹ {{ total_partybalance|floatformat:2}}</td>
+                                                        <td class="text-center px-0" style="white-space: nowrap; color: {% if model.action == 'Created' %}green{% elif model.action == 'Updated' %}red{% else %}black{% endif %};">
+                                                            {{ model.action }}
+                                                        </td>                                                    
+                                                        <td class="text-center  px-0" style="white-space: nowrap;">{{ model.staff_name }}</td>                                                          
                                                         <td class="px-0 pt-3 m-0 text-center removefields " style="white-space: nowrap;">
                                                             <div class="btn-group mb-1">
                                                                 <button style="border: none;background: none;" type="button" class="ropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
@@ -785,10 +809,12 @@
                                             <td class="text-center  px-0">{% if getparty.payment == 'To Pay' %} Payable Opening Balance {% elif getparty.payment == 'To Receive' %} Receivable Opening Balance{% else %} Opening Balance{% endif %}</td>
                                             <td class="text-center  px-0" style="white-space: nowrap;"></td>
                                             <td class="text-center  px-0" style="white-space: nowrap;">{{ getparty.current_date|date:"d-m-Y" }}</td>
-                                            <td class="text-center  px-0" style="white-space: nowrap;">₹ {{ getparty.openingbalance }}</td>
-                                            <td class="text-center  px-0" style="white-space: nowrap;">₹ {{ getparty.current_balance }}</td>
-                                            <td class="text-center  px-0" style="white-space: nowrap;">{{ party_history.action }}</td>
-                                            <td class="text-center  px-0" style="white-space: nowrap;">{{ party_history.staff__first_name }} {{ party_history.staff__last_name }}</td>
+                                            <td class="text-center  px-0" style="white-space: nowrap;">₹ {{ getparty.openingbalance|floatformat:2 }}</td>
+                                            <td class="text-center  px-0" style="white-space: nowrap;">₹ {{ getparty.current_balance|floatformat:2 }}</td>
+                                            <td class="text-center  px-0" style="white-space: nowrap;color: {% if party_history.action == 'Created' %}green{% elif party_history.action == 'Updated' %}red{% else %}black{% endif %};">
+                                                {{ party_history.action }}
+                                            </td>
+                                            <td class="text-center  px-0" style="white-space: nowrap; ">{{ party_history.staff__first_name }} {{ party_history.staff__last_name }}</td>
                                             <td class="px-0 pt-3 m-0 text-center removefields " style="white-space: nowrap;">
                                                 <div class="btn-group mb-1">
                                                     <button style="border: none;background: none;" type="button" class="ropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
