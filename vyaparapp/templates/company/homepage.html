@@ -12,10 +12,12 @@
         <!--  Row 1 -->
 
         {% if staff.position == 'company' %}
-          <div class="alert alert-danger d-flex" role="alert">
-            <b><b>🚀 Upgrade Available, &nbsp; </b></b>
-            <a href="{% url 'com_notification' %}" class="alert-link">  click the link</a>&nbsp; <b> to extend your payment term.</b>
-          </div>
+          {% if notification  %}
+            <div class="alert alert-danger d-flex" role="alert">
+              <b><b>🚀 Upgrade Available, &nbsp; </b></b>
+              <a href="{% url 'com_notification' %}" class="alert-link">  click the link</a>&nbsp; <b> to extend your payment term.</b>
+            </div>
+          {% endif %}
         {% endif %}
 
         <div class="d-flex justify-content-center py-2 px-0">

@@ -1318,6 +1318,23 @@
     function getItemDetails(inpId, value){
         $('#'+inpId).val(value);
         var n = inpId.slice(4);
+        console.log(n);
+
+
+        var selectedProducts = [];
+        $('input.item-display').each(function(index, element) {
+            if (element.id !== inpId) {
+                selectedProducts.push(element.value);
+            }
+        });
+        if (selectedProducts.includes(value)) {
+            alert('The same item cannot be selected again in another row');
+
+            var $select = $('#item' + n);
+            $select.val('').trigger('change.select2');
+            return;
+        }
+
         $.ajax({
             url: "{%  url 'getItemData' %}",
             type : 'GET',
@@ -1339,7 +1356,6 @@
                         document.getElementById('taxigst'+n).value = response.igst;
                     }
                     document.getElementById('estitem'+n).value = response.id;
-                    console.log("Estimate ID :",response.id)
                     calc();
                 }
             },

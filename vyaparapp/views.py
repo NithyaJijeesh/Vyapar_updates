@@ -417,12 +417,12 @@ def list_admin_notification(request, num):
                                                 PaymentTerms_updation__isnull=False)
   elif num == 2:
     data = Admin_Notification.objects.filter(  status='New',
-                                                Modules_List__isnull=True,
-                                                PaymentTerms_updation__isnull=False)
+                                                Modules_List__isnull=False,
+                                                PaymentTerms_updation__isnull=True)
   elif num == 3:
     data = Admin_Notification.objects.filter( status='New',
-                                              Modules_List__isnull=False,
-                                              PaymentTerms_updation__isnull=True)
+                                              Modules_List__isnull=True,
+                                              PaymentTerms_updation__isnull=False)
 
   context = { 'data' :data, }
                 
@@ -611,8 +611,10 @@ def items_list(request,pk):
     first_item = all_items.filter().first()
   elif pk != 0:
     first_item = all_items.get(id=pk)
- 
+
+
   model_queries = {}
+  sales_orders = transactions = []
  
   item_history= Item_History.objects.filter(
     Item= first_item,
@@ -621,6 +623,7 @@ def items_list(request,pk):
 
   if first_item:
     transactions = TransactionModel.objects.filter(company = cmp,item=first_item.id).order_by('-trans_created_date')
+  print('Transaction:' , transaction)
 
   models_to_check1 = [CreditNoteItem, PurchaseBillItem, purchasedebit1, PurchaseOrderItem]
   models_to_check2 = [SalesInvoiceItem,Estimate_items, DeliveryChallanItems]
@@ -647,27 +650,27 @@ def items_list(request,pk):
           instance.staff_name = staff_name
           instance.action = action
 
-          # Replace the model_queries entry with the updated instance
           if model_name not in model_queries:
               model_queries[model_name] = []
           model_queries[model_name].append(instance)
   
 
   for model in models_to_check1:
-      if model.objects.filter(company=staff.company.id, product=first_item.id).exists():
+      if first_item is not None and model.objects.filter(company=staff.company.id, product=first_item.id).exists():
           model_instances = model.objects.filter(company=staff.company.id, product=first_item.id)
           history_model, history_field = history_models[model.__name__]
           get_latest_history(model_instances, history_model, history_field, model.__name__)
 
   for model in models_to_check2:
-      if model.objects.filter(company=staff.company.id, item=first_item.id).exists():
+      if first_item is not None and model.objects.filter(company=staff.company.id, item=first_item.id).exists():
           model_instances = model.objects.filter(company=staff.company.id, item=first_item.id)
           history_model, history_field = history_models[model.__name__]
           get_latest_history(model_instances, history_model, history_field, model.__name__)
 
-  sales_orders = sales_item.objects.filter(cmp=staff.company.id, product=first_item.id)
-  history_model, history_field = history_models['sales_item']
-  get_latest_history(sales_orders, history_model, history_field, 'sales_item')
+  if first_item is not None:
+    sales_orders = sales_item.objects.filter(cmp=staff.company.id, product=first_item.id)
+    history_model, history_field = history_models['sales_item']
+    get_latest_history(sales_orders, history_model, history_field, 'sales_item')
 
   context = {
     'first_item':first_item,
@@ -681,12 +684,12 @@ def items_list(request,pk):
     "model_queries": model_queries,
      
   }
-  try:
-    if all_items == None or all_items == '' or first_item == None or first_item == '' or transactions == None or transactions == '':
-      return render(request,'company/items_create_first_item.html', context)
-    return render(request,'company/items_list.html',context)
-  except:
+  # try:
+  if all_items == None or all_items == '' or first_item == None or first_item == '':
     return render(request,'company/items_create_first_item.html', context)
+  return render(request,'company/items_list.html',context)
+  # except:
+  #   return render(request,'company/items_create_first_item.html', context)
 
 
 # @login_required(login_url='login')
@@ -746,16 +749,13 @@ def item_create_new(request):
                           item_min_stock_maintain=item_min_stock_maintain)
   
     if request.POST.get('save_and_next'):
-      if ItemModel.objects.filter(item_name=item_name, item_hsn=item_hsn).exists():
-        # messages.error(request, 'Item with the same item name and HSN  number already exists.')
-        print('Item with the same item name and HSN  number already exists..')
-      elif ItemModel.objects.filter(item_name=item_name).exists():
-        # messages.error(request, 'An item can have one HSN Number.')
-        print('An item can have one HSN Number..')
+      if ItemModel.objects.filter(item_name=item_name, item_hsn=item_hsn, company = cmp).exists():
+         print('Item with the same item name and HSN  number already exists..')
+      elif ItemModel.objects.filter(item_name=item_name,company = cmp).exists():
+         print('An item can have one HSN Number..')
 
-      elif ItemModel.objects.filter(item_hsn=item_hsn).exists():
-        # messages.error(request, 'Item with the same HSN  number already exists.')
-        print('Item with the same HSN  number already exists..')
+      elif ItemModel.objects.filter(item_hsn=item_hsn,company = cmp).exists():
+         print('Item with the same HSN  number already exists..')
 
       else:
         item_data.save()
@@ -764,15 +764,13 @@ def item_create_new(request):
     
     elif request.POST.get('save'):
 
-      if ItemModel.objects.filter(item_name=item_name, item_hsn=item_hsn).exists():
-        # messages.error(request, 'Item with the same item name and HSN  number already exists.')
+      if ItemModel.objects.filter(item_name=item_name, item_hsn=item_hsn, company = cmp).exists():
         print('Item with the same item name and HSN  number already exists..')
-      elif ItemModel.objects.filter(item_name=item_name).exists():
-        # messages.error(request, 'An item can have one HSN Number.')
+
+      elif ItemModel.objects.filter(item_name=item_name,company = cmp).exists():
         print('An item can have one HSN Number..')
 
-      elif ItemModel.objects.filter(item_hsn=item_hsn).exists():
-        # messages.error(request, 'Item with the same HSN  number already exists.')
+      elif ItemModel.objects.filter(item_hsn=item_hsn,company = cmp).exists():
         print('Item with the same HSN  number already exists..')
 
       else:
@@ -5302,6 +5300,7 @@ def view_parties(request,pk):
       getparty = party.objects.filter(company=staff.company.id).first()
   elif pk != 0:
       getparty = party.objects.get(company=staff.company.id, id=pk)
+
   allmodules= modules_list.objects.get(company=staff.company,status='New')
 
   models_to_check1 = [PurchaseBill, PurchaseOrder, SalesInvoice, purchasedebit, PaymentOut,PaymentIn, CreditNote]
@@ -5342,17 +5341,16 @@ def view_parties(request,pk):
           instance.staff_name = staff_name
           instance.action = action
 
-          # Replace the model_queries entry with the updated instance
           if model_name not in model_queries:
               model_queries[model_name] = []
           model_queries[model_name].append(instance)
 
-  purchase_total = sales_total  = 0
-  
+  purchase_total = sales_total  = total_partybalance =  0
+  sales_orders = expenses = party_histories = []
   model_queries = {}
 
   for model in models_to_check1:
-    if model.objects.filter(company=staff.company.id, party=getparty).exists():
+    if getparty is not None and model.objects.filter(company=staff.company.id, party=getparty).exists():
         model_instances = model.objects.filter(company=staff.company.id, party=getparty)
         for mod in model_instances:
           if model.__name__ in ['PurchaseBill', 'PurchaseOrder', 'PaymentOut']:
@@ -5372,7 +5370,7 @@ def view_parties(request,pk):
 
 
   for model in models_to_check2:
-      if model.objects.filter(company=staff.company.id, party_name=getparty.party_name).exists():
+      if getparty is not None and model.objects.filter(company=staff.company.id, party_name=getparty.party_name).exists():
           model_instances = model.objects.filter(company=staff.company.id, party_name=getparty.party_name)
           for mod in model_instances:
             if model.__name__ == model.__name__ in ['Estimate' , 'DeliveryChallan']:
@@ -5380,29 +5378,30 @@ def view_parties(request,pk):
           history_model, history_field = history_models_to_check[model.__name__]
           get_latest_history(model_instances, history_model, history_field, model.__name__)
 
+  
+
+  if getparty is not None: 
+    sales_orders = salesorder.objects.filter(comp=staff.company.id, party = getparty)
+    for sales in sales_orders:
+      sales_total += float(sales.balance)
+    history_model, history_field = history_models_to_check['salesorder']
+    get_latest_history(sales_orders, history_model, history_field, 'salesorder')
 
 
-  sales_orders = salesorder.objects.filter(comp=staff.company.id, party = getparty)
-  for sales in sales_orders:
-     sales_total += float(sales.balance)
-  history_model, history_field = history_models_to_check['salesorder']
-  get_latest_history(sales_orders, history_model, history_field, 'salesorder')
-
-
-  expenses = Expense.objects.filter(staff_id__company_id= staff.company.id, party_id=getparty)
-  for exp in expenses:
-     purchase_total += float(exp.balance)
-  history_model, history_field = history_models_to_check['Expense']
-  get_latest_history(expenses, history_model, history_field, 'Expense')
+    expenses = Expense.objects.filter(staff_id__company_id= staff.company.id, party_id=getparty)
+    for exp in expenses:
+      purchase_total += float(exp.balance)
+    history_model, history_field = history_models_to_check['Expense']
+    get_latest_history(expenses, history_model, history_field, 'Expense')
 
   
-  party_histories= party_history.objects.filter(
-    party=getparty,
-    company=staff.company
-  ).values('party', 'action' , 'staff__first_name' , 'staff__last_name').last()
+    party_histories= party_history.objects.filter(
+      party=getparty,
+      company=staff.company
+    ).values('party', 'action' , 'staff__first_name' , 'staff__last_name').last()
 
-  total_partybalance = - float(getparty.openingbalance) if getparty.payment == 'To Pay'  else float(getparty.openingbalance)
-  total_partybalance +=  (sales_total  - purchase_total)
+    total_partybalance = - float(getparty.openingbalance) if getparty.payment == 'To Pay'  else float(getparty.openingbalance)
+    total_partybalance +=  (sales_total  - purchase_total)
 
   context = { 
               'staff':staff,
@@ -5451,8 +5450,8 @@ def save_parties(request):
             messages.error(request, 'Please Enter Party Name and Contact.')
         else:
           if 'save_and_new' in request.POST:
-              if party.objects.filter(party_name=party_name, contact=contact).exists() or party.objects.filter(contact=contact).exists():
-                  # messages.error(request, 'Party with the same party name and contact number already exists.')
+              
+              if party.objects.filter(party_name=party_name, contact=contact, company = staff.company).exists() or party.objects.filter(contact=contact, company = staff.company).exists():
                   print('Party with the same party name and contact number already exists.')
               else:
                   part.save()
@@ -5460,8 +5459,8 @@ def save_parties(request):
               
               return render(request, 'company/add_parties.html', context)
           else:
-              if party.objects.filter(party_name=party_name, contact=contact).exists() or party.objects.filter(contact=contact).exists():
-                  # messages.error(request, 'Party with the same party name and contact number already exists.')
+              
+              if party.objects.filter(party_name=party_name, contact=contact, company = staff.company).exists() or party.objects.filter(contact=contact, company = staff.company).exists():
                   print('Party with the same party name and contact number already exists.')
               else:
                   part.save()
@@ -9475,7 +9474,7 @@ def convertEstimateToInvoice(request,id):
       i['gst_tax'] = 'GST'+tax+'['+tax+'%]'
       i['igst_tax'] = 'IGST'+tax+'['+tax+'%]'
 
-    Party = party.objects.get(party_name = estimate.party_name, contact = estimate.contact)
+    Party = party.objects.get(party_name = estimate.party_name, contact = estimate.contact, company = company_instance)
     # print(Party.openingbalance)
     tod = date.today()
     context={
@@ -16003,27 +16002,43 @@ def addEstParty(request):
     
     
 def newPartyCheck(request):
+    if request.session.has_key('staff_id'):
+      staff_id = request.session['staff_id']
+            
+    else:
+      return redirect('/')
+    staff =  staff_details.objects.get(id=staff_id)
+    Company = company.objects.get(id = staff.company.id)
+
     party_name = request.POST.get('name')
     contact = request.POST.get('contact')
     if party_name:
-      if party.objects.filter(party_name=party_name, contact=contact).exists() :
+      if party.objects.filter(party_name=party_name, contact=contact, company = Company).exists() :
         return JsonResponse({'errorparty': 'Party and contact already exists.'})
-      elif party.objects.filter(contact=contact).exists():
+      elif party.objects.filter(contact=contact, company = Company).exists():
         return JsonResponse({'errorcontact': 'Contact already exists for another party.'})
     
     return JsonResponse({'status': True})
     
     
 def newItemCheck(request):
+    if request.session.has_key('staff_id'):
+      staff_id = request.session['staff_id']
+            
+    else:
+      return redirect('/')
+    staff =  staff_details.objects.get(id=staff_id)
+    Company = company.objects.get(id = staff.company.id)
+
     item_name = request.POST.get('itemname')
     hsn = request.POST.get('hsn')
 
     if item_name:
-      if ItemModel.objects.filter(item_name=item_name, item_hsn= hsn).exists() :
+      if ItemModel.objects.filter(item_name=item_name, item_hsn= hsn, company = Company).exists() :
         return JsonResponse({'erroritemhsn': 'Item with the same ITEM NAME and HSN  number already exists..'})
-      elif ItemModel.objects.filter(item_name=item_name).exists():
+      elif ItemModel.objects.filter(item_name=item_name, company = Company).exists():
         return JsonResponse({'erroritem': 'An item can have one HSN Number..'})
-      elif ItemModel.objects.filter(item_hsn=hsn).exists():
+      elif ItemModel.objects.filter(item_hsn=hsn, company = Company).exists():
         return JsonResponse({'errorhsn': 'Item with the same HSN  number already exists..'})
       else:
         pass

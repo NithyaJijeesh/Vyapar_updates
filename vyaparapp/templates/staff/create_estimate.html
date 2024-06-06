@@ -216,7 +216,7 @@
                                                 <input type="text" id="item1" value="" name="item[]" class="dropdown-toggle form-control item-display border-info bg-light" onkeyup="filterFunction($(this).attr('id'))"  data-bs-toggle="dropdown" aria-expanded="false" placeholder="Items.." autocomplete="off">
                                                 <ul class="dropdown-menu w-100 items-available position-absolute" id="menu1"  style="overflow-y: auto; height: 270px;"> 
                                                 {% for i in items %}
-                                                <li class="dropdown-item items-options" onclick="getItemDetails($(this).parent().prev().attr('id'),`{{i.item_name}}`)">{{i.item_name}}</li>
+                                                <li class="dropdown-item items-options" onchange="getItemDetails($(this).parent().prev().attr('id'),`{{i.item_name}}`)">{{i.item_name}}</li>
                                                 {% endfor %}
                                                 </ul>
                                                 <button type="button" class="btn btn-sm btn-outline-secondary ms-1" data-bs-target="#newItem" data-bs-toggle="modal"><i class="fa fa-plus"></i></button>
@@ -936,6 +936,26 @@
         $('#'+inpId).val(value);
 
         var n = inpId.slice(4);
+        console.log(n);
+
+        var n1 = inpId.slice(7);
+        console.log(n1);
+
+        var selectedProducts = [];
+        $('select.product').each(function(index, element) {
+            if (element.id !== id) {
+                selectedProducts.push(element.value);
+            }
+        });
+        if (selectedProducts.includes(value)) {
+            alert('The same item cannot be selected again in another row');
+
+            var $select = $('#product' + n);
+            $select.val('').trigger('change.select2');
+            return;
+        }
+
+
         $.ajax({
         url: "{%  url 'getItemData' %}",
         type : 'GET',
@@ -945,7 +965,7 @@
             },
         
         success: function(response) {
-            console.log("ajax",response);
+            // console.log("ajax",response);
             if (response.status){
                 document.getElementById('hsn'+n).value = response.hsn;
                 document.getElementById('price'+n).value = response.sale_rate;
