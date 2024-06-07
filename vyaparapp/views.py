@@ -57,6 +57,18 @@ from django.core.validators import validate_email
 from itertools import zip_longest
 from openpyxl.styles import Font
 import math
+from django.db.models import Subquery
+from django.template.loader import get_template
+from .models import staff_details, ItemModel, company
+from django.shortcuts import redirect, get_object_or_404
+from django.core.mail import EmailMessage
+from django.template.loader import get_template
+from django.db.models import Sum
+from django.db.models import Case,CharField,Value,When
+import os
+from datetime import datetime
+from .models import SalesInvoice, staff_details, company
+
 
 # Create your views here.
 def home(request):
@@ -138,6 +150,7 @@ def estimate_quotation(request):
         action = 'Updated'
       dict = {'estimate':est,'history':history,'action'  :action, 'name' : name}
       estimates.append(dict)
+      print(history)
     context = {
       'staff':staff,'company':com,'allmodules':allmodules, 'estimates':estimates,
     }
@@ -384,53 +397,10 @@ def add_payment_terms(request):
 
 def admin_notification(request):
   data= Admin_Notification.objects.filter(status='New')
-  
-  context = { 
-                'data' :data
-            }
-  
-  return render(request,'admin/admin_notification.html',context) 
 
-def updates_admin(request):
-  term_data= Admin_Notification.objects.filter( status='New', 
-                                                Modules_List__isnull=False, 
-                                                PaymentTerms_updation__isnull=False)
-  pay_term = Admin_Notification.objects.filter(  status='New',
-                                                Modules_List__isnull=True,
-                                                PaymentTerms_updation__isnull=False)
-  module = Admin_Notification.objects.filter( status='New',
-                                              Modules_List__isnull=False,
-                                              PaymentTerms_updation__isnull=True)
-
-  context = { 'term_data' : term_data,
-              'pay_term' : pay_term,
-              'module' : module,
-            }
-  return render(request, 'admin/admin_update.html', context)
-
-
-def list_admin_notification(request, num):
-
-  if num == 1:
-    data= Admin_Notification.objects.filter( status='New', 
-                                                Modules_List__isnull=False, 
-                                                PaymentTerms_updation__isnull=False)
-  elif num == 2:
-    data = Admin_Notification.objects.filter(  status='New',
-                                                Modules_List__isnull=False,
-                                                PaymentTerms_updation__isnull=True)
-  elif num == 3:
-    data = Admin_Notification.objects.filter( status='New',
-                                              Modules_List__isnull=True,
-                                              PaymentTerms_updation__isnull=False)
-
-  context = { 'data' :data, }
-                
-  return render(request, 'admin/list_admin_notifications.html', context)
-
+  return render(request,'admin/admin_notification.html',{'data':data}) 
 
 def module_updation_details(request,mid):
-
   data= Admin_Notification.objects.get(id=mid)
   if data.Modules_List:
     old_modules= modules_list.objects.get(company=data.company_id,status='New')
@@ -528,8 +498,11 @@ def distributor_home(request):
   return render(request,'distributor/distributor_home.html',{'distributor':distributor})
       
 def clients(request):
-  
-  return render(request,'admin/clients.html')
+  data= Admin_Notification.objects.filter(status='New',
+                                          Modules_List__isnull=False,
+                                          PaymentTerms_updation__isnull=False,).first()
+  print(data)
+  return render(request,'admin/clients.html',{'data',data})
 
 def distributors(request):
   return render(request,'admin/distributors.html')  
@@ -599,6 +572,18 @@ def distributor_profile(request):
   return render(request,'distributor/distributor_profile.html',{'distributor':distributor,'terms':terms})
 
 # ========================================   ASHIKH V U (START) ======================================================
+
+# @login_required(login_url='login')
+def item_create(request):
+  sid = request.session.get('staff_id')
+  staff =  staff_details.objects.get(id=sid)
+  cmp = company.objects.get(id=staff.company.id)
+  allmodules=modules_list.objects.get(company=cmp,status = 'New')
+  # item_units = UnitModel.objects.filter(user=request.user.id)
+  item_units = UnitModel.objects.filter(company = cmp) #updated - shemeem
+  return render(request,'company/item_create.html',{'item_units':item_units,'company':cmp, 'staff':staff, 'allmodules' : allmodules})
+
+# @login_required(login_url='login')
 def items_list(request,pk):
   
   sid = request.session.get('staff_id')
@@ -623,7 +608,6 @@ def items_list(request,pk):
 
   if first_item:
     transactions = TransactionModel.objects.filter(company = cmp,item=first_item.id).order_by('-trans_created_date')
-  print('Transaction:' , transaction)
 
   models_to_check1 = [CreditNoteItem, PurchaseBillItem, purchasedebit1, PurchaseOrderItem]
   models_to_check2 = [SalesInvoiceItem,Estimate_items, DeliveryChallanItems]
@@ -684,25 +668,12 @@ def items_list(request,pk):
     "model_queries": model_queries,
      
   }
-  # try:
-  if all_items == None or all_items == '' or first_item == None or first_item == '':
+  try:
+    if all_items == None or all_items == '' or first_item == None or first_item == '' or transactions == None or transactions == '':
+      return render(request,'company/items_create_first_item.html', context)
+    return render(request,'company/items_list.html',context)
+  except:
     return render(request,'company/items_create_first_item.html', context)
-  return render(request,'company/items_list.html',context)
-  # except:
-  #   return render(request,'company/items_create_first_item.html', context)
-
-
-# @login_required(login_url='login')
-def item_create(request):
-  sid = request.session.get('staff_id')
-  staff =  staff_details.objects.get(id=sid)
-  cmp = company.objects.get(id=staff.company.id)
-  allmodules=modules_list.objects.get(company=cmp,status = 'New')
-  # item_units = UnitModel.objects.filter(user=request.user.id)
-  item_units = UnitModel.objects.filter(company = cmp) #updated - shemeem
-  return render(request,'company/item_create.html',{'item_units':item_units,'company':cmp, 'staff':staff, 'allmodules' : allmodules})
-
-
 
 # @login_required(login_url='login')
 def item_create_new(request):
@@ -766,7 +737,7 @@ def item_create_new(request):
 
       if ItemModel.objects.filter(item_name=item_name, item_hsn=item_hsn, company = cmp).exists():
         print('Item with the same item name and HSN  number already exists..')
-
+        
       elif ItemModel.objects.filter(item_name=item_name,company = cmp).exists():
         print('An item can have one HSN Number..')
 
@@ -786,12 +757,15 @@ def item_delete(request,pk):
   sid = request.session.get('staff_id')
   staff = staff_details.objects.get(id=sid)
   item_to_delete = ItemModel.objects.get(id=pk)
-  # print(staff.company.id)
+  print(staff.company.id)
 
- 
+  # # item_to_delete.delete()
+  # return redirect('items_list',pk=0)
+
+    # List of models to check
   models_to_check1 = [CreditNoteItem, PurchaseBillItem, purchasedebit1, PurchaseOrderItem]
   models_to_check2 = [SalesInvoiceItem,Estimate_items, DeliveryChallanItems,TransactionModel]
-
+  # Check conditions for each model
   conditions_met1 = any(model.objects.filter(company=staff.company.id, product=item_to_delete).exists() for model in models_to_check1)
   conditions_met2 = any(model.objects.filter(company=staff.company.id, item= item_to_delete).exists() for model in models_to_check2)
 
@@ -1172,6 +1146,9 @@ def deleteparty(request, id):
 
 @login_required(login_url='login')
 def adminhome(request):
+ 
+  
+  
   return render(request, 'admin/adminhome.html')
 
 def downloadPartySampleImportFile(request):
@@ -1291,6 +1268,7 @@ def party_histories(request,id):
   sid = request.session.get('staff_id')
   staff = staff_details.objects.get(id=sid)
   cmp = company.objects.get(id=staff.company.id)   
+  allmodules= modules_list.objects.get(company=staff.company,status='New')
   getparty = party.objects.get(id=id,company=cmp)
   party_histories= party_history.objects.filter(party=getparty,company=cmp)
   allmodules= modules_list.objects.get(company=staff.company,status='New')
@@ -1395,7 +1373,7 @@ def banks_list(request,pk):
   allmodules= modules_list.objects.get(company=get_company_id_using_user_id,status='New')
  
 
-  try:
+  if BankModel.objects.filter(company=get_company_id_using_user_id.id).exists():
     all_banks = BankModel.objects.filter(company=get_company_id_using_user_id.id)
     if pk == 0:
       first_bank = all_banks.first()
@@ -1433,7 +1411,7 @@ def banks_list(request,pk):
                                                       "staff":staff}) 
     else:
       return render(request,'company/bank_create_first_bank.html',{"allmodules":allmodules,'staff':staff}) 
-  except:
+  else:
     return render(request,'company/bank_create_first_bank.html',{"allmodules":allmodules,'staff':staff}) 
     
 
@@ -1703,6 +1681,8 @@ def bank_to_bank_transaction_create(request):
                                         amount=amount,
                                         last_action='CREATED',
                                         by = staff.first_name,
+                                        from_bank_current_amount=bank1.current_balance,
+                                        to_bank_current_amount=bank2.current_balance,
                                         )
     transaction_data.save()
     tr_history = BankTransactionHistory(company=get_company_id_using_user_id,
@@ -1744,6 +1724,7 @@ def bank_to_cash_transaction_create(request):
                                         date=date,
                                         last_action='CREATED',
                                         by = staff.first_name,
+                                        from_bank_current_amount=bank1.current_balance,
                                         )
     transaction_data.save()
     tr_history = BankTransactionHistory(company=get_company_id_using_user_id,
@@ -1786,6 +1767,7 @@ def cash_to_bank_transaction_create(request):
                                         date=date,
                                         last_action='CREATED',
                                         by = staff.first_name,
+                                        to_bank_current_amount=bank2.current_balance,
                                         )
     transaction_data.save()
     tr_history = BankTransactionHistory(company=get_company_id_using_user_id,
@@ -1834,6 +1816,7 @@ def get_adjust_bank_balance_create(request):
                                         date=date,
                                         last_action='CREATED',
                                         by = staff.first_name,
+                                        from_bank_current_amount=bank1.current_balance,
                                         )
     transaction_data.save()
     tr_history = BankTransactionHistory(company=get_company_id_using_user_id,
@@ -1947,14 +1930,18 @@ def update_bank_transaction(request,pk,bank_id):
       bank1 = BankModel.objects.get(id=trans.from_here.id)
       if trans.amount > int(amount):
         bank1.current_balance += (trans.amount-int(amount))
+        trans.from_bank_current_amount=bank1.current_balance
       else:
         bank1.current_balance -= (int(amount)-trans.amount)
+        trans.from_bank_current_amount=bank1.current_balance
       bank1.save()
       bank2 = BankModel.objects.get(id=trans.to_here.id)
       if trans.amount > int(amount):
         bank2.current_balance -= (trans.amount-int(amount))
+        trans.to_bank_current_amount=bank2.current_balance
       else:
         bank2.current_balance += (int(amount)-trans.amount)
+        trans.to_bank_current_amount=bank2.current_balance
       bank2.save()
       old_amount = trans.amount
       if old_amount != amount:
@@ -1981,8 +1968,10 @@ def update_bank_transaction(request,pk,bank_id):
       bank1 = BankModel.objects.get(id=trans.from_here.id)
       if trans.amount > int(amount):
         bank1.current_balance += (trans.amount-int(amount))
+        trans.from_bank_current_amount=bank1.current_balance
       else:
         bank1.current_balance -= (int(amount)-trans.amount)
+        trans.from_bank_current_amount=bank1.current_balance
       bank1.save()
       trans.amount = amount
       trans.save()
@@ -2003,8 +1992,10 @@ def update_bank_transaction(request,pk,bank_id):
       bank2 = BankModel.objects.get(id=trans.to_here.id)
       if trans.amount > int(amount):
         bank2.current_balance -= (trans.amount-int(amount))
+        trans.to_bank_current_amount = bank2.current_balance
       else:
         bank2.current_balance += (int(amount)-trans.amount)
+        trans.to_bank_current_amount = bank2.current_balance
       bank2.save()
       trans.amount = amount
       trans.save()
@@ -2025,8 +2016,10 @@ def update_bank_transaction(request,pk,bank_id):
       bank1 = BankModel.objects.get(id=trans.from_here.id)
       if trans.amount > int(amount):
         bank1.current_balance -= (trans.amount-int(amount))
+        trans.from_bank_current_amount=bank1.current_balance
       else:
         bank1.current_balance += (int(amount)-trans.amount)
+        trans.from_bank_current_amount=bank1.current_balance
       bank1.save()
       trans.amount = amount
       trans.save()
@@ -2047,8 +2040,10 @@ def update_bank_transaction(request,pk,bank_id):
       bank1 = BankModel.objects.get(id=trans.from_here.id)
       if trans.amount > int(amount):
         bank1.current_balance += (trans.amount-int(amount))
+        trans.from_bank_current_amount=bank1.current_balance
       else:
         bank1.current_balance -= (int(amount)-trans.amount)
+        trans.from_bank_current_amount=bank1.current_balance
       bank1.save()
       trans.amount = amount
       trans.save()
@@ -2410,7 +2405,7 @@ def transaction_history(request,pk,bank_id):
     allmodules= modules_list.objects.get(company=staff.company.id,status='New')
     get_company_id_using_user_id = company.objects.get(id=staff.company.id)
     user = get_company_id_using_user_id.user
-    # allmodules= modules_list.objects.get(company=get_company_id_using_user_id,status='New')
+    allmodules= modules_list.objects.get(company=get_company_id_using_user_id,status='New')
 
     all_banks = BankModel.objects.filter(company=get_company_id_using_user_id.id)
 
@@ -3094,61 +3089,62 @@ def createNewEstimate(request):
     com =  company.objects.get(id = staff.company.id)
     try:
       if request.method == 'POST':
-        estimate = Estimate(
-          staff = staff,
-          company = com,
-          date = request.POST['date'],
-          ref_no = request.POST['ref_no'],
-          party_name = party.objects.get(id = request.POST['party_name']).party_name,
-          contact = request.POST['contact'],
-          billing_address = request.POST['address'] if request.POST['address'] else '',
-          state_of_supply = 'State' if request.POST['state_supply'] == 'state' else 'Other State',
-          description = request.POST['description'],
-          subtotal = request.POST['subtotal'],
-          cgst = request.POST['cgst_tax'],
-          sgst = request.POST['sgst_tax'],
-          igst = request.POST['igst_tax'],
-          tax_amount = request.POST['tax_amount'],
-          adjustment = request.POST['adjustment'],
-          total_amount = request.POST['grand_total'],
-          balance = 0,
-          status = 'Open',
-          is_converted = False
-        )
-        estimate.save()
-        
-        ids = request.POST.getlist('estItems[]')
-        item = request.POST.getlist("item[]")
-        hsn  = request.POST.getlist("hsn[]")
-        qty = request.POST.getlist("qty[]")
-        price = request.POST.getlist("price[]")
-        tax = request.POST.getlist("taxgst[]") if request.POST['state_supply'] == 'state' else request.POST.getlist("taxigst[]")
-        discount = request.POST.getlist("discount[]")
-        total = request.POST.getlist("total[]")
+          estimate = Estimate(
+            staff = staff,
+            company = com,
+            date = request.POST['date'],
+            ref_no = request.POST['ref_no'],
+            party_name = party.objects.get(id = request.POST['party_name']).party_name,
+            contact = request.POST['contact'],
+            billing_address = request.POST['address'] if request.POST['address'] else '',
+            state_of_supply = 'State' if request.POST['state_supply'] == 'state' else 'Other State',
+            description = request.POST['description'],
+            subtotal = request.POST['subtotal'],
+            cgst = request.POST['cgst_tax'],
+            sgst = request.POST['sgst_tax'],
+            igst = request.POST['igst_tax'],
+            tax_amount = request.POST['tax_amount'],
+            adjustment = request.POST['adjustment'],
+            total_amount = request.POST['grand_total'],
+            balance = 0,
+            status = 'Open',
+            is_converted = False
+          )
+          estimate.save()
+          
+          ids = request.POST.getlist('estItems[]')
+          item = request.POST.getlist("item[]")
+          hsn  = request.POST.getlist("hsn[]")
+          qty = request.POST.getlist("qty[]")
+          price = request.POST.getlist("price[]")
+          tax = request.POST.getlist("taxgst[]") if request.POST['state_supply'] == 'state' else request.POST.getlist("taxigst[]")
+          discount = request.POST.getlist("discount[]")
+          total = request.POST.getlist("total[]")
 
-        est_id = Estimate.objects.get( id = estimate.id)
+          est_id = Estimate.objects.get( id = estimate.id)
 
-        if len(ids)==len(item)==len(hsn)==len(qty)==len(price)==len(tax)==len(discount)==len(total) and ids and item and hsn and qty and price and tax and discount and total:
-            mapped = zip(ids,item,hsn,qty,price,tax,discount,total)
-            mapped = list(mapped)
-            for ele in mapped:
-              estItems = Estimate_items.objects.create(staff = staff, eid = est_id, company = com, item = ItemModel.objects.get(company = com, id = ele[0]),name = ele[1],hsn=ele[2],quantity=ele[3],price=ele[4],tax=ele[5],discount = ele[6],total=ele[7])
-        
-        # Transaction history
+          if len(ids)==len(item)==len(hsn)==len(qty)==len(price)==len(tax)==len(discount)==len(total) and ids and item and hsn and qty and price and tax and discount and total:
+              mapped = zip(ids,item,hsn,qty,price,tax,discount,total)
+              mapped = list(mapped)
+              for ele in mapped:
+                estItems = Estimate_items.objects.create(staff = staff, eid = est_id, company = com, item = ItemModel.objects.get(company = com, id = ele[0]),name = ele[1],hsn=ele[2],quantity=ele[3],price=ele[4],tax=ele[5],discount = ele[6],total=ele[7])
+          
+          # Transaction history
 
-        history = EstimateTransactionHistory(
-          staff = staff,
-          estimate = est_id,
-          company = com,
-          action = "Create"
-        )
-        history.save()
-        if 'Next' in request.POST:
-            return redirect('create_estimate')
-        return redirect('estimate_quotation')
+          history = EstimateTransactionHistory(
+            staff = staff,
+            estimate = est_id,
+            company = com,
+            action = "Create"
+          )
+          history.save()
+
+          if 'save_and_next' in request.POST:
+              return redirect('create_estimate')
+          return redirect('estimate_quotation')
     except Exception as e:
         print(e)
-        return redirect('estimate_quotation')
+        return redirect('create_estimate')
   return redirect('/')
 
 
@@ -4725,31 +4721,34 @@ def addNewParty(request):
         if request.method == 'POST':
             Company = company.objects.get(id=staff.company.id)
             user_id = request.user.id
-            
+            print("partyin")
             party_name = request.POST['partyname']
             gst_no = request.POST['gstno']
-            contact = request.POST['contact']
-            gst_type = request.POST['gst']
-            state = request.POST['state']
-            address = request.POST['address']
-            email = request.POST['email']
-            openingbalance = request.POST.get('balance', '')
+            contact = request.POST['partyphno']
+            gst_type = request.POST['modalgsttype']
+            state = request.POST['splystate']
+            address = request.POST['baddress']
+            email = request.POST['partyemail']
+            openingbalance = request.POST.get('openbalance', '')
             payment = request.POST.get('paymentType', '')
-            creditlimit = request.POST.get('creditlimit', '')
-            current_date = request.POST['currentdate']
+            creditlimit = request.POST.get('crd_lmt', '')
+            current_date = request.POST['partydate']
             End_date = request.POST.get('enddate', None)
-            additionalfield1 = request.POST['additionalfield1']
-            additionalfield2 = request.POST['additionalfield2']
-            additionalfield3 = request.POST['additionalfield3']
+            additionalfield1 = request.POST['additional1']
+            additionalfield2 = request.POST['additional2']
+            additionalfield3 = request.POST['additional3']
             comp = Company
 
-            if party.objects.filter(gst_no=gst_no, company=comp).exists():
+            if gst_no and party.objects.filter(gst_no=gst_no, company=comp).exists():
               response = {'status': False, 'message': 'GST  number already exists.'}
             # If GST number is already registered, do not save and return
               return JsonResponse(response)
             if party.objects.filter(contact=contact, company=comp).exists():
               response = {'status': False, 'message': 'Contact number already exists.'}
               return JsonResponse(response)
+
+            if gst_type not in 'Unregistered or Consumer' and not gst_no:
+              return JsonResponse({'status': False, 'message': 'Party not saved, GST number required!'})  
 
             part = party(party_name=party_name, gst_no=gst_no, contact=contact, gst_type=gst_type, state=state,
                          address=address, email=email, openingbalance=openingbalance, payment=payment,
@@ -4993,8 +4992,6 @@ def login(request):
         messages.info(request, 'Approval is Pending..')
         return redirect('log_page')
       
-                                                                                                    
-      
     if staff_details.objects.filter(user_name=user_name,password=passw,position='staff').exists():
       data = staff_details.objects.get(user_name=user_name,password=passw,position='staff')   
       if data.Action == 1:
@@ -5017,7 +5014,6 @@ def login(request):
    return redirect('log_page') 
   
 
-
 def homepage(request):
  
   staff_id = request.session['staff_id']
@@ -5028,7 +5024,6 @@ def homepage(request):
   current_day=date.today() 
   diff = (staff.company.End_date - current_day).days
   data = Company_Notification.objects.filter(company_id = staff.company.id,status='New')
-
   if staff.company.Trial_Feedback == 'No_Response' and diff <=10:
     if not  data.exists():
       for n in data:
@@ -5051,7 +5046,6 @@ def homepage(request):
       'notification' : data,
     }
   return render(request, 'company/homepage.html', context)  
-
 
 def staff_request(request):
   staff_id = request.session['staff_id']
@@ -5080,7 +5074,7 @@ def staffhome(request):
  
 def View_staff(request):
   staff_id = request.session['staff_id']
-  # print(staff_id)    
+  print(staff_id)    
   staff =  staff_details.objects.get(id = staff_id)
   data = staff_details.objects.filter(company=staff.company.id,Action=1,position='staff').order_by('-id')
   allmodules= modules_list.objects.get(company=staff.company.id,status='New')
@@ -5089,38 +5083,11 @@ def View_staff(request):
 
 def Companyprofile(request):
   staff_id = request.session['staff_id']
-  # print(staff_id)    
+  print(staff_id)    
   staff =  staff_details.objects.get(id = staff_id)
   allmodules= modules_list.objects.get(company=staff.company.id,status='New')
   terms=payment_terms.objects.all()
   return render(request,'company/companyprofile.html',{'staff':staff,'allmodules':allmodules,'terms':terms}) 
-
-
-def check_module_status(request):
-    try:
-        staff_id = request.session['staff_id']
-        staff = staff_details.objects.get(id=staff_id)
-        pending_module = modules_list.objects.filter(company=staff.company.id, status='Pending').order_by('?').first()
-        module_status = pending_module.status if pending_module else ""
-        print(module_status)
-        return JsonResponse({'module_status': module_status})
-    except modules_list.DoesNotExist:
-        print("No pending modules found.")
-        return JsonResponse({'module_status': ""})
-
-def check_term_status(request):
-  try:
-    staff_id = request.session['staff_id']
-    staff = staff_details.objects.get(id=staff_id)
-    pending_module = Payment_Terms_updation.objects.filter(company_id=staff.company.id, status='New').earliest('id')
-    term_status = pending_module.status if pending_module else ""
-    print(term_status)
-    return JsonResponse({'term_status': term_status})
-  except Payment_Terms_updation.DoesNotExist:
-    print("No pending modules found.")
-    return JsonResponse({'term_status': ""})
-
-
 
 def editcompanyprofile(request):
   staff_id = request.session['staff_id']
@@ -5177,10 +5144,9 @@ def editcompanyprofile_action(request):
   return redirect('Companyprofile')
 
 
-
 def editmodule(request):
   staff_id = request.session['staff_id']
-  # print(staff_id) 
+  print(staff_id) 
   staff =  staff_details.objects.get(id = staff_id)
   allmodules= modules_list.objects.get(company=staff.company.id,status='New')
   return render(request,'company/editmodule.html',{'staff':staff,'allmodules':allmodules})
@@ -5188,7 +5154,7 @@ def editmodule(request):
 def editmodule_action(request):
   if request.method == 'POST':
     staff_id = request.session['staff_id']
-    # print(staff_id) 
+    print(staff_id) 
     staff =  staff_details.objects.get(id = staff_id)
     com = company.objects.get(id = staff.company.id)
     # if modules_list.objects.filter(company=com.id,status='Old').exists():
@@ -5468,7 +5434,7 @@ def save_parties(request):
 
               return redirect('view_parties', part.id)
 
-    return render(request, 'company/add_parties.html',context)  
+    return render(request, 'company/add_parties.html',context) 
 
 def view_party(request,id):
   staff_id = request.session['staff_id']
@@ -5848,9 +5814,19 @@ def salesinvoice_save_parties(request):
         comp = company_instance
 
         # Check if the GST number or contact number is already registered
-        if party.objects.filter(Q(gst_no=gst_no, company=company_instance) | Q(contact=contact, company=company_instance)).exists():
-          return JsonResponse({'status': False, 'message': 'GST number or Contact number of Party is already registered.'}, status=200)  # Return status 200 for success but with status=False
+        if party.objects.filter(contact=contact, company=company_instance).exists():
+          return JsonResponse({'status': False, 'message': 'Contact number of Party is already registered.'}, status=200)  
 
+        if gst_no and party.objects.filter(gst_no=gst_no, company=company_instance).exists():
+          return JsonResponse({'status': False, 'message': 'GST number of Party is already registered.'}, status=200)  
+
+        if not contact:
+            print('phnull')
+            return JsonResponse({'status': False, 'message': 'Party not saved, contact number required!'}, status=200)
+          
+        if gst_type not in 'Unregistered or Consumer' and not gst_no:
+              return JsonResponse({'status': False, 'message': 'Party not saved, GST number required!'}, status=200)  
+        
 
         part = party(party_name=party_name, gst_no=gst_no, contact=contact, gst_type=gst_type, state=state, address=address, email=email,
                      openingbalance=openingbalance, payment=payment, creditlimit=creditlimit, current_date=current_date,
@@ -6107,13 +6083,16 @@ def add_debitnote(request):
   item_units = UnitModel.objects.filter(user=cmp.user,company=staff.company)
   bank=BankModel.objects.filter(company=cmp,user=cmp.user)
   debt_count = purchasedebit.objects.filter(company=cmp).order_by('-pdebitid').first()
-  
+
+  available_bills_subquery = purchasedebit.objects.filter(billno__in=Subquery(PurchaseBill.objects.filter(party__in=Party).values('billno'))).values('billno')
+  available_bills = PurchaseBill.objects.filter(party__in=Party).exclude(billno__in=Subquery(available_bills_subquery))
+
   if debt_count:
     next_count = int(debt_count.reference_number) + 1
   else:
     next_count=1
 
-  return render(request,'company/adddebitnotes.html',{'staff':staff,'allmodules':allmodules,'Party':Party,'item':item,'count':next_count,'tod':tod,'item_units':item_units,'bank':bank,'cmp':cmp})
+  return render(request,'company/adddebitnotes.html',{'staff':staff,'allmodules':allmodules,'Party':Party,'item':item,'count':next_count,'tod':tod,'item_units':item_units,'bank':bank,'cmp':cmp,'available_bills':available_bills})
 
 def create_debitnotes(request):
   if 'staff_id' in request.session:
@@ -6356,39 +6335,29 @@ def custdata1(request):
 
 def purchasebilldata(request):
     try:
-        party_name = request.POST['id']
-        party_instance = party.objects.get(id=party_name)
+        selected_party_id = request.POST.get('id')
+        party_instance = get_object_or_404(party, id=selected_party_id)
+        
+        # Subquery to get the used bill numbers
+        used_bill_numbers_subquery = purchasedebit.objects.filter(billno__in=Subquery(PurchaseBill.objects.filter(party=party_instance).values('billno'))).values('billno')
 
-        # Initialize lists to store multiple bill numbers and dates
+        # Fetch only the bills belonging to the selected party and not used in credit notes
+        bill_instances = PurchaseBill.objects.filter(party=party_instance).exclude(billno__in=Subquery(used_bill_numbers_subquery))
+
         bill_numbers = []
         bill_dates = []
 
-        try:
-            # Retrieve all PurchaseBill instances for the party
-            bill_instances = PurchaseBill.objects.filter(party=party_instance)
+        for bill_instance in bill_instances:
+            bill_numbers.append(bill_instance.billno)
+            bill_dates.append(bill_instance.billdate)
 
-            # Loop through each PurchaseBill instance and collect bill numbers and dates
-            for bill_instance in bill_instances:
-                bill_numbers.append(bill_instance.billno)
-                bill_dates.append(bill_instance.billdate)
-
-        except PurchaseBill.DoesNotExist:
-            pass
-
-        # Return a JSON response with the list of bill numbers and dates
         if not bill_numbers and not bill_dates:
-            return JsonResponse({'bill_numbers': ['nobill'], 'bill_dates': ['nodate']})
+            return JsonResponse({'bill_numbers': ['No Bill'], 'bill_dates': ['No Date']})
 
         return JsonResponse({'bill_numbers': bill_numbers, 'bill_dates': bill_dates})
 
-    except KeyError:
-        return JsonResponse({'error': 'The key "id" is missing in the POST request.'})
-
     except party.DoesNotExist:
-        return JsonResponse({'error': 'Party not found.'})
-
-
-
+        return JsonResponse({'error': 'Party not found'})
 
 def import_debitnote(request):
   if request.method == 'POST' and request.FILES['billfile']  and request.FILES['prdfile']:
@@ -7577,8 +7546,8 @@ def saleorder_create(request):
     else:
       return redirect('/')
   staff =  staff_details.objects.get(id=staff_id)
-  allmodules= modules_list.objects.get(company=staff.company,status='New')
   # cmp = staff.company
+  allmodules= modules_list.objects.get(company=staff.company,status='New')
   cmp = company.objects.get(id=staff.company.id)
   par= party.objects.filter(company=staff.company)
   item = ItemModel.objects.filter(company=staff.company)
@@ -7587,7 +7556,7 @@ def saleorder_create(request):
   
   
   context={
-    'party':par,'item':item,'staff':staff,'order':order,'bnk':bnk,'allmodule':allmodules
+    'party':par,'item':item,'staff':staff,'order':order,'bnk':bnk,'allmodules':allmodules
   }
   return render(request, 'company/saleorder_create.html',context)
 
@@ -7833,7 +7802,7 @@ def add_party(request):
             additionalfield3 = request.POST['additionalfield3']
             comp = Company
             
-            if party.objects.filter(gst_no=gst_no, company=comp).exists():
+            if gst_no and party.objects.filter(gst_no=gst_no, company=comp).exists():
               response = {'status': False, 'message': 'GST  number already exists.'}
             # If GST number is already registered, do not save and return
               return JsonResponse(response)
@@ -7841,6 +7810,9 @@ def add_party(request):
               response = {'status': False, 'message': 'Contact number already exists.'}
               return JsonResponse(response)
 
+            if gst_type not in 'Unregistered or Consumer' and not gst_no:
+              return JsonResponse({'status': False, 'message': 'Party not saved, GST number required!'})   
+            
             part = party(party_name=party_name, gst_no=gst_no, contact=contact, gst_type=gst_type, state=state, address=address,
                          email=email, openingbalance=openingbalance, payment=payment, creditlimit=creditlimit,
                          current_date=current_date, End_date=End_date, additionalfield1=additionalfield1,
@@ -9074,30 +9046,62 @@ def importPaymentFromExcel(request):
 #End
 
 def gstrr2(request):
-    if 'staff_id' in request.session:
-        staff_id = request.session['staff_id']
-    else:
-        return redirect('/')
+  if 'staff_id' in request.session:
+    staff_id = request.session['staff_id']
+  else:
+    return redirect('/')
+  staff = staff_details.objects.get(id=staff_id)
+  cmp = staff.company 
+  allmodules= modules_list.objects.get(company=cmp,status='New')
 
-    staff = staff_details.objects.get(id=staff_id)
-    comp = company.objects.get(id=staff.company.id)
+  from_date = request.POST.get('from_date')
+  to_date = request.POST.get('to_date')
 
-    # Filter PurchaseBill instances related to the specific company
-    purchasebill = PurchaseBill.objects.filter(company=comp)
+  if request.method=="POST" and from_date!='' and to_date!='':
+    pur_bill = PurchaseBill.objects.filter(company=cmp.id,billdate__range=[from_date,to_date])
+    pur_return = purchasedebit.objects.filter(company=cmp.id,billdate__range=[from_date,to_date])
+  else:
+    pur_bill = PurchaseBill.objects.filter(company=cmp.id)
+    pur_return = purchasedebit.objects.filter(company=cmp.id)
 
-    # Filter party instances related to the specific company
-    partydata = party.objects.filter(company=comp)
-    allmodules= modules_list.objects.get(company=staff.company,status='New')
+  context = {
+    'staff':staff,
+    'company': cmp,
+    'purchase_bill': pur_bill, 
+    'purchase_return': pur_return,
+    'allmodules':allmodules,
+    "from_date":from_date,
+    "to_date":to_date,
+  }
 
-    return render(request, 'company/gstr_2.html', {'staff':staff,'company': comp,'purchasebill': purchasebill, 'partydata': partydata,'allmodules':allmodules})
+  return render(request, 'company/gstr_2.html', context)
 
 def gstrnew1(request):
   staff_id = request.session['staff_id']
   staff =  staff_details.objects.get(id=staff_id)
   comp =  company.objects.get(id = staff.company.id)
-
   allmodules= modules_list.objects.get(company=staff.company,status='New')
-  return render(request, 'company/gstr_1.html',{'staff':staff,'company':comp,'allmodules':allmodules})
+
+  from_date = request.POST.get('from_date')
+  to_date = request.POST.get('to_date')
+
+  if request.method=="POST" and from_date!='' and to_date!='':
+    inv = SalesInvoice.objects.filter(company=comp.id,date__range=[from_date,to_date])
+    c_note = CreditNote.objects.filter(company=comp.id,date__range=[from_date,to_date])  
+  else:
+    inv = SalesInvoice.objects.filter(company=comp.id)
+    c_note = CreditNote.objects.filter(company=comp.id)
+
+  context={
+    'staff':staff,
+    'company':comp,
+    'allmodules':allmodules,
+    "inv":inv,
+    "c_note":c_note,
+    "from_date":from_date,
+    "to_date":to_date,
+  }
+  return render(request, 'company/gstr_1.html',context)
        
 
 def sharepurchaseBillToEmail(request):
@@ -9755,18 +9759,14 @@ def shareinvoiceToEmail(request,id):
 def sales_report(request):
   id=request.session.get('staff_id')
   staff =  staff_details.objects.get(id=id)
+  allmodules= modules_list.objects.get(company=staff.company,status='New')
   sale = salesorder.objects.filter(comp=staff.company)
-  print(sale)
-  c=sale.count()
-  s=0
+  sale_count = sale.count()
+  sale_total = 0
   for i in sale:
-    s += float(i.grandtotal)
-  content={
-    'sale':sale,
-    'staff':staff,
-    'c':c,
-    's':s,
-  }
+    if i.grandtotal != '':
+      sale_total += float(i.grandtotal)
+  content = {'sale':sale, 'staff':staff, 'sale_count':sale_count, 'sale_total':sale_total, 'allmodules':allmodules}
   return render(request,'company/sale_order_report.html',content)
 #--------------------------------------------------------------------
 def purchase_report(request):
@@ -9790,530 +9790,41 @@ def purchase_report(request):
   return render(request,'company/purchase_report.html',content)
 #-------------------------------------------------------------------------------
 def send_sale_report_via_mail(request):
-  if request.method == 'POST':
-    from_date_str=request.POST['fdate']
-    To_date_str=request.POST['tdate']
-    search=request.POST['search']
-    filters_by=request.POST['filter']
-    emails_string = request.POST['email']
-    emails= [email.strip() for email in emails_string.split(',')]
-    mess=request.POST['message']
-    #filter using date-------------------
-    if from_date_str and To_date_str:
-      print(from_date_str)
-      print(To_date_str)
-      id=request.session.get('staff_id')
-      staff=staff_details.objects.get(id=id)
-      sale= salesorder.objects.filter(staff=id,orderdate__range=[from_date_str,To_date_str])
-      total=0
-      c=0
-      for i in sale:
-        c=c+1
-        total += float(i.grandtotal)
-      content={
-      'sale':sale,
-      'staff':staff,
-      'total':total,
-      'c':c,
-      'sdate':from_date_str,
-      'edate':To_date_str
-      }
-      template_path = 'company/share_salereport_mail.html'
-      template = get_template(template_path)
-
-      html  = template.render(content)
-      result = BytesIO()
-      pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
-      pdf = result.getvalue()
-      filename = f'sales Report.pdf'
-      email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
-      email.attach(filename, pdf, "application/pdf")
-      email.send(fail_silently=False)
-      messages.info(request,'sales order report shared via mail')
-      return redirect('sales_report')
-    #if search input -------------------------
+  if request.method == 'GET':
+    from_date = request.GET.get('from_date')
+    to_date = request.GET.get('to_date')
+    search = request.GET.get('search_input')
+    emails_string = request.GET.get('email_ids')
+    emails = [email.strip() for email in emails_string.split(',')]
+    mess = request.GET.get('email_message')
+    id = request.session.get('staff_id')
+    staff = staff_details.objects.get(id=id)
+    sale = salesorder.objects.filter(staff=id)
+    if from_date or to_date:
+      sale = sale.filter(orderdate__range=[from_date, to_date])
     if search:
-      if search.isdigit():
-        if salesorder.objects.filter(orderno__startswith=search):
-          id=request.session.get('staff_id')
-          staff=staff_details.objects.get(id=id)
-          sale= salesorder.objects.filter(staff=id,orderno__startswith=search)
-          total=0
-          c=0
-          for i in sale:
-            c=c+1
-            total += float(i.grandtotal)
-          content={
-          'sale':sale,
-          'staff':staff,
-          'total':total,
-          'c':c
-          }
-          template_path = 'company/share_salereport_mail.html'
-          template = get_template(template_path)
+      sale = sale.filter(Q(status__icontains = search) | Q(orderno__icontains = search) | Q(partyname__icontains = search) | Q(grandtotal__icontains = search))
 
-          html  = template.render(content)
-          result = BytesIO()
-          pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
-          pdf = result.getvalue()
-          filename = f'sales Report.pdf'
-          email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
-          email.attach(filename, pdf, "application/pdf")
-          email.send(fail_silently=False)
-          messages.info(request,'sales order report shared via mail')
-          return redirect('sales_report')
-        if salesorder.objects.filter(grandtotal__startswith=search):
-          id=request.session.get('staff_id')
-          staff=staff_details.objects.get(id=id)
-          sale= salesorder.objects.filter(staff=id,grandtotal__startswith=search)
-          total=0
-          c=0
-          for i in sale:
-            c=c+1
-            total += float(i.grandtotal)
-          content={
-          'sale':sale,
-          'staff':staff,
-          'total':total,
-          'c':c
-          }
-          template_path = 'company/share_salereport_mail.html'
-          template = get_template(template_path)
-
-          html  = template.render(content)
-          result = BytesIO()
-          pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
-          pdf = result.getvalue()
-          filename = f'sales Report.pdf'
-          email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
-          email.attach(filename, pdf, "application/pdf")
-          email.send(fail_silently=False)
-          messages.info(request,'sales order report shared via mail')
-          return redirect('sales_report')
-        if salesorder.objects.filter(paid__startswith=search):
-          id=request.session.get('staff_id')
-          staff=staff_details.objects.get(id=id)
-          sale= salesorder.objects.filter(staff=id,paid__startswith=search)
-          total=0
-          c=0
-          for i in sale:
-            c=c+1
-            total += float(i.grandtotal)
-          content={
-          'sale':sale,
-          'staff':staff,
-          'total':total,
-          'c':c
-          }
-          template_path = 'company/share_salereport_mail.html'
-          template = get_template(template_path)
-
-          html  = template.render(content)
-          result = BytesIO()
-          pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
-          pdf = result.getvalue()
-          filename = f'sales Report.pdf'
-          email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
-          email.attach(filename, pdf, "application/pdf")
-          email.send(fail_silently=False)
-          messages.info(request,'sales order report shared via mail')
-          return redirect('sales_report')
-        if salesorder.objects.filter(balance__startswith=search):
-          id=request.session.get('staff_id')
-          staff=staff_details.objects.get(id=id)
-          sale= salesorder.objects.filter(staff=id,balance__startswith=search)
-          total=0
-          c=0
-          for i in sale:
-            c=c+1
-            total += float(i.grandtotal)
-          content={
-          'sale':sale,
-          'staff':staff,
-          'total':total,
-          'c':c
-          }
-          template_path = 'company/share_salereport_mail.html'
-          template = get_template(template_path)
-
-          html  = template.render(content)
-          result = BytesIO()
-          pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
-          pdf = result.getvalue()
-          filename = f'sales Report.pdf'
-          email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
-          email.attach(filename, pdf, "application/pdf")
-          email.send(fail_silently=False)
-          messages.info(request,'sales order report shared via mail')
-          return redirect('sales_report')
-      if salesorder.objects.filter(orderdate__startswith=search):
-          id=request.session.get('staff_id')
-          staff=staff_details.objects.get(id=id)
-          sale= salesorder.objects.filter(staff=id,orderdate__startswith=search)
-          total=0
-          c=0
-          for i in sale:
-            c=c+1
-            total += float(i.grandtotal)
-          content={
-          'sale':sale,
-          'staff':staff,
-          'total':total,
-          'c':c
-          }
-          template_path = 'company/share_salereport_mail.html'
-          template = get_template(template_path)
-
-          html  = template.render(content)
-          result = BytesIO()
-          pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
-          pdf = result.getvalue()
-          filename = f'sales Report.pdf'
-          email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
-          email.attach(filename, pdf, "application/pdf")
-          email.send(fail_silently=False)
-          messages.info(request,'sales order report shared via mail')
-          return redirect('sales_report')  
-      if salesorder.objects.filter(duedate__startswith=search):
-          id=request.session.get('staff_id')
-          staff=staff_details.objects.get(id=id)
-          sale= salesorder.objects.filter(staff=id,duedate__startswith=search)
-          total=0
-          c=0
-          for i in sale:
-            c=c+1
-            total += float(i.grandtotal)
-          content={
-          'sale':sale,
-          'staff':staff,
-          'total':total,
-          'c':c
-          }
-          template_path = 'company/share_salereport_mail.html'
-          template = get_template(template_path)
-
-          html  = template.render(content)
-          result = BytesIO()
-          pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
-          pdf = result.getvalue()
-          filename = f'sales Report.pdf'
-          email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
-          email.attach(filename, pdf, "application/pdf")
-          email.send(fail_silently=False)
-          messages.info(request,'sales order report shared via mail')
-          return redirect('sales_report')
-      if salesorder.objects.filter(partyname__startswith=search):
-          id=request.session.get('staff_id')
-          staff=staff_details.objects.get(id=id)
-          sale= salesorder.objects.filter(staff=id,partyname__startswith=search)
-          total=0
-          c=0
-          for i in sale:
-            c=c+1
-            total += float(i.grandtotal)
-          content={
-          'sale':sale,
-          'staff':staff,
-          'total':total,
-          'c':c
-          }
-          template_path = 'company/share_salereport_mail.html'
-          template = get_template(template_path)
-
-          html  = template.render(content)
-          result = BytesIO()
-          pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
-          pdf = result.getvalue()
-          filename = f'sales Report.pdf'
-          email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
-          email.attach(filename, pdf, "application/pdf")
-          email.send(fail_silently=False)
-          messages.info(request,'sales order report shared via mail')
-          return redirect('sales_report') 
-      if salesorder.objects.filter(action__startswith=search):
-          id=request.session.get('staff_id')
-          staff=staff_details.objects.get(id=id)
-          sale= salesorder.objects.filter(staff=id,action__startswith=search)
-          total=0
-          c=0
-          for i in sale:
-            c=c+1
-            total += float(i.grandtotal)
-          content={
-          'sale':sale,
-          'staff':staff,
-          'total':total,
-          'c':c
-          }
-          template_path = 'company/share_salereport_mail.html'
-          template = get_template(template_path)
-
-          html  = template.render(content)
-          result = BytesIO()
-          pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
-          pdf = result.getvalue()
-          filename = f'sales Report.pdf'
-          email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
-          email.attach(filename, pdf, "application/pdf")
-          email.send(fail_silently=False)
-          messages.info(request,'sales order report shared via mail')
-          return redirect('sales_report')
-    if filters_by:
-      if filters_by.isdigit():
-        if salesorder.objects.filter(orderno__startswith=filters_by):
-          id=request.session.get('staff_id')
-          staff=staff_details.objects.get(id=id)
-          sale= salesorder.objects.filter(staff=id,orderno__startswith=filters_by)
-          total=0
-          c=0
-          for i in sale:
-            c=c+1
-            total += float(i.grandtotal)
-          content={
-          'sale':sale,
-          'staff':staff,
-          'total':total,
-          'c':c
-          }
-          template_path = 'company/share_salereport_mail.html'
-          template = get_template(template_path)
-
-          html  = template.render(content)
-          result = BytesIO()
-          pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
-          pdf = result.getvalue()
-          filename = f'sales Report.pdf'
-          email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
-          email.attach(filename, pdf, "application/pdf")
-          email.send(fail_silently=False)
-          messages.info(request,'sales order report shared via mail')
-          return redirect('sales_report')
-        if salesorder.objects.filter(grandtotal__startswith=filters_by):
-          id=request.session.get('staff_id')
-          staff=staff_details.objects.get(id=id)
-          sale= salesorder.objects.filter(staff=id,grandtotal__startswith=filters_by)
-          total=0
-          c=0
-          for i in sale:
-            c=c+1
-            total += float(i.grandtotal)
-          content={
-          'sale':sale,
-          'staff':staff,
-          'total':total,
-          'c':c
-          }
-          template_path = 'company/share_salereport_mail.html'
-          template = get_template(template_path)
-
-          html  = template.render(content)
-          result = BytesIO()
-          pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
-          pdf = result.getvalue()
-          filename = f'sales Report.pdf'
-          email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
-          email.attach(filename, pdf, "application/pdf")
-          email.send(fail_silently=False)
-          messages.info(request,'sales order report shared via mail')
-          return redirect('sales_report')
-        if salesorder.objects.filter(paid__startswith=filters_by):
-          id=request.session.get('staff_id')
-          staff=staff_details.objects.get(id=id)
-          sale= salesorder.objects.filter(staff=id,paid__startswith=filters_by)
-          total=0
-          c=0
-          for i in sale:
-            c=c+1
-            total += float(i.grandtotal)
-          content={
-          'sale':sale,
-          'staff':staff,
-          'total':total,
-          'c':c
-          }
-          template_path = 'company/share_salereport_mail.html'
-          template = get_template(template_path)
-
-          html  = template.render(content)
-          result = BytesIO()
-          pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
-          pdf = result.getvalue()
-          filename = f'sales Report.pdf'
-          email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
-          email.attach(filename, pdf, "application/pdf")
-          email.send(fail_silently=False)
-          messages.info(request,'sales order report shared via mail')
-          return redirect('sales_report')
-        if salesorder.objects.filter(balance__startswith=filters_by):
-          id=request.session.get('staff_id')
-          staff=staff_details.objects.get(id=id)
-          sale= salesorder.objects.filter(staff=id,balance__startswith=filters_by)
-          total=0
-          c=0
-          for i in sale:
-            c=c+1
-            total += float(i.grandtotal)
-          content={
-          'sale':sale,
-          'staff':staff,
-          'total':total,
-          'c':c
-          }
-          template_path = 'company/share_salereport_mail.html'
-          template = get_template(template_path)
-
-          html  = template.render(content)
-          result = BytesIO()
-          pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
-          pdf = result.getvalue()
-          filename = f'sales Report.pdf'
-          email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
-          email.attach(filename, pdf, "application/pdf")
-          email.send(fail_silently=False)
-          messages.info(request,'sales order report shared via mail')
-          return redirect('sales_report')
-      if salesorder.objects.filter(orderdate__startswith=filters_by):
-          id=request.session.get('staff_id')
-          staff=staff_details.objects.get(id=id)
-          sale= salesorder.objects.filter(staff=id,orderdate__startswith=filters_by)
-          total=0
-          c=0
-          for i in sale:
-            c=c+1
-            total += float(i.grandtotal)
-          content={
-          'sale':sale,
-          'staff':staff,
-          'total':total,
-          'c':c
-          }
-          template_path = 'company/share_salereport_mail.html'
-          template = get_template(template_path)
-
-          html  = template.render(content)
-          result = BytesIO()
-          pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
-          pdf = result.getvalue()
-          filename = f'sales Report.pdf'
-          email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
-          email.attach(filename, pdf, "application/pdf")
-          email.send(fail_silently=False)
-          messages.info(request,'sales order report shared via mail')
-          return redirect('sales_report')  
-      if salesorder.objects.filter(duedate__startswith=filters_by):
-          id=request.session.get('staff_id')
-          staff=staff_details.objects.get(id=id)
-          sale= salesorder.objects.filter(staff=id,duedate__startswith=filters_by)
-          total=0
-          c=0
-          for i in sale:
-            c=c+1
-            total += float(i.grandtotal)
-          content={
-          'sale':sale,
-          'staff':staff,
-          'total':total,
-          'c':c
-          }
-          template_path = 'company/share_salereport_mail.html'
-          template = get_template(template_path)
-
-          html  = template.render(content)
-          result = BytesIO()
-          pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
-          pdf = result.getvalue()
-          filename = f'sales Report.pdf'
-          email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
-          email.attach(filename, pdf, "application/pdf")
-          email.send(fail_silently=False)
-          messages.info(request,'sales order report shared via mail')
-          return redirect('sales_report')
-      if salesorder.objects.filter(partyname__startswith=filters_by):
-          id=request.session.get('staff_id')
-          staff=staff_details.objects.get(id=id)
-          sale= salesorder.objects.filter(staff=id,partyname__startswith=filters_by)
-          total=0
-          c=0
-          for i in sale:
-            c=c+1
-            total += float(i.grandtotal)
-          content={
-          'sale':sale,
-          'staff':staff,
-          'total':total,
-          'c':c
-          }
-          template_path = 'company/share_salereport_mail.html'
-          template = get_template(template_path)
-
-          html  = template.render(content)
-          result = BytesIO()
-          pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
-          pdf = result.getvalue()
-          filename = f'sales Report.pdf'
-          email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
-          email.attach(filename, pdf, "application/pdf")
-          email.send(fail_silently=False)
-          messages.info(request,'sales order report shared via mail')
-          return redirect('sales_report') 
-      if salesorder.objects.filter(action__startswith=filters_by):
-          id=request.session.get('staff_id')
-          staff=staff_details.objects.get(id=id)
-          sale= salesorder.objects.filter(staff=id,action__startswith=filters_by)
-          total=0
-          c=0
-          for i in sale:
-            c=c+1
-            total += float(i.grandtotal)
-          content={
-          'sale':sale,
-          'staff':staff,
-          'total':total,
-          'c':c
-          }
-          template_path = 'company/share_salereport_mail.html'
-          template = get_template(template_path)
-
-          html  = template.render(content)
-          result = BytesIO()
-          pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
-          pdf = result.getvalue()
-          filename = f'sales Report.pdf'
-          email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
-          email.attach(filename, pdf, "application/pdf")
-          email.send(fail_silently=False)
-          messages.info(request,'sales order report shared via mail')
-          return redirect('sales_report') 
-    if search == '' or filters_by == '' or from_date_str == '' or To_date_str == '' : 
-      id=request.session.get('staff_id')
-      staff=staff_details.objects.get(id=id)
-      sale= salesorder.objects.filter(staff=id)
-      total=0
-      c=0
-      for i in sale:
-        c=c+1
-        total += float(i.grandtotal)
-      content={
-          'sale':sale,
-          'staff':staff,
-          'total':total,
-          'c':c
-      }
-      template_path = 'company/share_salereport_mail.html'
-      template = get_template(template_path)
-
-      html  = template.render(content)
-      result = BytesIO()
-      pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
-      pdf = result.getvalue()
-      filename = f'sales Report.pdf'
-      email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
-      email.attach(filename, pdf, "application/pdf")
-      email.send(fail_silently=False)
-      messages.info(request,'sales order report shared via mail')
-      return redirect('sales_report')            
-   
-  return redirect('sales_report')   
+    total=0
+    for i in sale:
+      total += float(i.grandtotal)
+    content={'sale':sale, 'staff':staff, 'total':total, 'from_date':from_date, 'to_date':to_date}
+    template_path = 'company/share_salereport_mail.html'
+    template = get_template(template_path)
+    html  = template.render(content)
+    result = BytesIO()
+    pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)#, link_callback=fetch_resources)
+    pdf = result.getvalue()
+    filename = f'Sales Report.pdf'
+    subject = f"Sharing Sales Report"
+    email = EmailMessage(subject, f"Hi,\nPlease find the attached Sales Report. \n{mess}\n\n--\nRegards,\n{staff.company.company_name}\n{staff.company.address}\n{staff.company.state} - {staff.company.pincode}", from_email=settings.EMAIL_HOST_USER, to=emails)
+    email.attach(filename, pdf, "application/pdf")
+    email.send(fail_silently=False)
+    message = 'Report has been shared via email successfully..!'
+    return JsonResponse({'message':message})
+  else:
+    message = 'Report cannot be send..!'
+    return JsonResponse({'message':message})  
 #------------------------------------------------------------------------------------
 def send_purchase_report_via_mail(request):
   if request.method == 'POST':
@@ -10923,10 +10434,146 @@ def send_purchase_report_via_mail(request):
       return redirect('purchase_report') 
   return redirect('purchase_report')  
 #-------------------------------------------------------------------------------
+from datetime import date
+from django.db.models import CharField
+
 def day_book_report(request):
-  id=request.session.get('staff_id')
-  staff=staff_details.objects.get(id=id)
-  return render(request,'company/day_book_report.html',{'staff':staff})
+  id = request.session.get('staff_id')
+  staff = staff_details.objects.get(id=id) 
+  cmp = company.objects.get(id=staff.company.id)
+  allmodules = modules_list.objects.get(company=cmp, status='New')
+
+  from_date = request.POST.get('from_date')
+  to_date = request.POST.get('to_date')
+
+  if request.method=="POST" and from_date!='' and to_date!='':
+
+    daybook_history = list(
+      PurchaseBill.objects.filter(company=cmp,billdate__range=[from_date,to_date]).annotate(
+        object_type=Value("Purchase Bill",output_field=CharField()),
+        object_type_no=F('billno'),
+        object_party_name=F('party__party_name'),
+        object_total=F('grandtotal'),
+        object_money_in=Value("0.00",output_field=CharField()),
+        object_money_out=F('grandtotal'),
+      )
+    )+list(
+      SalesInvoice.objects.filter(company=cmp,date__range=[from_date,to_date]).annotate(
+        object_type=Value("Sales Invoice",output_field=CharField()),
+        object_type_no=F('invoice_no'),
+        object_party_name=F('party__party_name'),
+        object_total=F('grandtotal'),
+        object_money_in=Value("0.00",output_field=CharField()),
+        object_money_out=F('grandtotal'),
+      )
+    )+list(
+      purchasedebit.objects.filter(company=cmp,debitdate__range=[from_date,to_date]).annotate(
+        object_type=Value("Purchase Debit",output_field=CharField()),
+        object_type_no=F('billno'),
+        object_party_name=F('party__party_name'),
+        object_total=F('grandtotal'),
+        object_money_in=F('grandtotal'),
+        object_money_out=Value("0.00",output_field=CharField()),
+      )
+    )+list(
+      PurchaseOrder.objects.filter(company=cmp,orderdate__range=[from_date,to_date]).annotate(
+        object_type=Value("Purchase Order",output_field=CharField()),
+        object_type_no=F('orderno'),
+        object_party_name=F('party__party_name'),
+        object_total=F('grandtotal'),
+        object_money_in=Value("0.00",output_field=CharField()),
+        object_money_out=F('grandtotal'),
+      )
+    )+list(
+      salesorder.objects.filter(comp=cmp,orderdate__range=[from_date,to_date]).annotate(
+        object_type=Value("Sales Order",output_field=CharField()),
+        object_type_no=F('orderno'),
+        object_party_name=F('party__party_name'),
+        object_total=F('grandtotal'),
+        object_money_in=F('grandtotal'),
+        object_money_out=Value("0.00",output_field=CharField()),
+      )
+    )+list(
+      CreditNote.objects.filter(company=cmp,invoice_date__range=[from_date,to_date]).annotate(
+        object_type=Value("Credit Note",output_field=CharField()),
+        object_type_no=F('retrn_no'),
+        object_party_name=F('party__party_name'),
+        object_total=F('grandtotal'),
+        object_money_in=F('grandtotal'),
+        object_money_out=Value("0.00",output_field=CharField()),
+      )
+    )
+
+  else:
+    date_today = date.today().strftime('%Y-%m-%d')
+    print(f'{date_today}\n entered here')
+    from_date = date_today
+    to_date = from_date
+  
+    daybook_history = list(
+      PurchaseBill.objects.filter(company=cmp,billdate=date_today).annotate(
+        object_type=Value("Purchase Bill",output_field=CharField()),
+        object_type_no=F('billno'),
+        object_party_name=F('party__party_name'),
+        object_total=F('grandtotal'),
+        object_money_in=Value("0.00",output_field=CharField()),
+        object_money_out=F('grandtotal'),
+      )
+    )+list(
+      SalesInvoice.objects.filter(company=cmp,date=date_today).annotate(
+        object_type=Value("Sales Invoice",output_field=CharField()),
+        object_type_no=F('invoice_no'),
+        object_party_name=F('party__party_name'),
+        object_total=F('grandtotal'),
+        object_money_in=Value("0.00",output_field=CharField()),
+        object_money_out=F('grandtotal'),
+      )
+    )+list(
+      purchasedebit.objects.filter(company=cmp,debitdate=date_today).annotate(
+        object_type=Value("Purchase Debit",output_field=CharField()),
+        object_type_no=F('billno'),
+        object_party_name=F('party__party_name'),
+        object_total=F('grandtotal'),
+        object_money_in=F('grandtotal'),
+        object_money_out=Value("0.00",output_field=CharField()),
+      )
+    )+list(
+      PurchaseOrder.objects.filter(company=cmp,orderdate=date_today).annotate(
+        object_type=Value("Purchase Order",output_field=CharField()),
+        object_type_no=F('orderno'),
+        object_party_name=F('party__party_name'),
+        object_total=F('grandtotal'),
+        object_money_in=Value("0.00",output_field=CharField()),
+        object_money_out=F('grandtotal'),
+      )
+    )+list(
+      salesorder.objects.filter(comp=cmp,orderdate=date_today).annotate(
+        object_type=Value("Sales Order",output_field=CharField()),
+        object_type_no=F('orderno'),
+        object_party_name=F('party__party_name'),
+        object_total=F('grandtotal'),
+        object_money_in=F('grandtotal'),
+        object_money_out=Value("0.00",output_field=CharField()),
+      )
+    )+list(
+      CreditNote.objects.filter(company=cmp,invoice_date=date_today).annotate(
+        object_type=Value("Credit Note",output_field=CharField()),
+        object_type_no=F('retrn_no'),
+        object_party_name=F('party__party_name'),
+        object_total=F('grandtotal'),
+        object_money_in=F('grandtotal'),
+        object_money_out=Value("0.00",output_field=CharField()),
+      )
+    )
+  
+  context={
+    "allmodules":allmodules,
+    "staff":staff,
+    "daybook_history":daybook_history,
+    "from_date":from_date,
+    "to_date":to_date,
+  }
+  return render(request,'company/day_book_report.html',context)
   
 def add_loan_accounts_function(request):
     if request.method == 'POST':
@@ -10966,6 +10613,7 @@ def add_loan_accounts_function(request):
         account_number = request.POST.get('account_number')
 
         lr = request.POST.get('lr')
+        print(f'\n{lr}')
         cheque_number = request.POST.get('cheque_number')
         upi_id = request.POST.get('upi_id')
         upi_id_for_fee = request.POST.get('upi_id_for_fee')
@@ -10996,8 +10644,12 @@ def add_loan_accounts_function(request):
             )
 
         TransactionTable.objects.create(
+                date=formatted_date,
+                payment=current_balance,
                 loan_account=new_loan_account,
-                balance_amount=current_balance,company=cmp
+                balance_amount=current_balance,company=cmp,
+                loan_received=loan_received,
+                transaction_type="Loan Amount",
             )
         LoanHistory.objects.create(loan_account=new_loan_account, company=cmp, date=datetime.now(), action='CREATED')
 
@@ -11201,13 +10853,13 @@ def loan_accounts(request):
 
  
     if data:
-        data1 = TransactionTable.objects.filter(loan_account=data.id)
+        data1 = TransactionTable.objects.filter(loan_account=data.id).exclude(transaction_type="Loan Amount")
     else:
         data1 = []
 
     data2 = LoanAccounts.objects.filter(company=cmp)
 
-    return render(request, 'company/loan_accounts.html', {'data1': data1, 'data2': data2, 'data': data, 'allmodules': allmodules, 'staff': staff, 'bank': bank})  
+    return render(request, 'company/loan_accounts.html', {'data1': data1, 'data2': data2, 'data': data, 'allmodules': allmodules, 'staff': staff, 'bank': bank}) 
 
 def  add_loan_accounts(request):
   data = LoanAccounts.objects.all()
@@ -11243,7 +10895,7 @@ CommonData = namedtuple('CommonData', ['date', 'type', 'principal_amount', 'inte
 
 def loan_accounts_view_page(request, eid):
     data = LoanAccounts.objects.get(id=eid)
-    data1 = TransactionTable.objects.filter(loan_account=eid)
+    data1 = TransactionTable.objects.filter(loan_account=eid).exclude(transaction_type="Loan Amount")
     staff_id = request.session['staff_id']
     staff = staff_details.objects.get(id=staff_id)
     get_company_id_using_user_id = company.objects.get(id=staff.company.id)
@@ -11253,8 +10905,6 @@ def loan_accounts_view_page(request, eid):
 
     return render(request, 'company/loan_accounts_view_page.html', {'data1':data1,'data':data, 'allmodules': allmodules,'staff': staff })
 
-
-from django.db.models import Sum
 
 def make_payment(request, eid):
     loan_account_instance = get_object_or_404(LoanAccounts, id=eid)
@@ -11306,9 +10956,6 @@ def make_payment(request, eid):
 
     return render(request, 'loan_accounts.html' ) 
 
-
-
-from datetime import datetime
 
 def additional_loan(request):
     if request.method == 'POST':
@@ -11413,8 +11060,8 @@ def ForId(request, id):
   bank = BankModel.objects.filter(company=cmp,user=cmp.user)
   data = LoanAccounts.objects.get(id=id) 
   data2 = LoanAccounts.objects.filter(company=cmp)
-  data1 = TransactionTable.objects.filter(loan_account=id)
-  data4= TransactionTable.objects.filter(loan_account=id)
+  data1 = TransactionTable.objects.filter(loan_account=id).exclude(transaction_type="Loan Amount")
+  data4= TransactionTable.objects.filter(loan_account=id).exclude(transaction_type="Loan Amount")
   data5 = LoanAccounts.objects.filter(id=id) 
   
 
@@ -11438,6 +11085,9 @@ def create_sale(request):
     for b in bank:
         b.last_four_digits = str(b.account_num)[-4:]
     allmodules= modules_list.objects.get(company=staff.company,status='New')
+
+    available_invoices_subquery = CreditNote.objects.filter(invoiceno__in=Subquery(SalesInvoice.objects.filter(party_id__in=Party).values('invoice_no'))).values('invoiceno')
+    available_invoices = SalesInvoice.objects.filter(party_id__in=Party).exclude(invoice_no__in=Subquery(available_invoices_subquery))
     
     last_credit = CreditNote.objects.filter(company=cmp).count()
 
@@ -11448,23 +11098,61 @@ def create_sale(request):
 
     item = ItemModel.objects.filter(company=cmp,user=cmp.user)
     item_units = UnitModel.objects.filter(user=cmp.user,company=staff.company)
-            
-       
 
-      
-    context = {'staff':staff, 'allmodules':allmodules, 'party':Party, 'cmp':cmp,'credit_note':credit_note,'tod':tod,'item':item, 'item_units':item_units,'bank':bank}
+   
+
+
+    context = {'staff':staff, 'allmodules':allmodules, 'party':Party, 'cmp':cmp,'credit_note':credit_note,'tod':tod,'item':item, 'item_units':item_units,'bank':bank,'available_invoices': available_invoices}
     return render(request, 'company/create_sale.html', context)
 
 def add_creditnote(request):
+  
   if request.method == 'POST':
     sid = request.session.get('staff_id')
     staff = staff_details.objects.get(id=sid)
     cmp = company.objects.get(id=staff.company.id)    
     party_id = request.POST.get('partyname')
     print(party_id)
+    
+   
+
+    party_invoices = SalesInvoice.objects.filter(party_id=party_id)
+    print("Party invoices:")
+    for invoice in party_invoices:
+        print("Invoice number:", invoice.invoice_no)
+        
+    used_invoice_numbers = CreditNote.objects.filter(invoiceno__in=party_invoices.values_list('invoice_no', flat=True))
+
+    available_invoices = party_invoices.exclude(invoice_no__in=used_invoice_numbers.values_list('invoiceno', flat=True))
+
+    print("Available invoices:")
+    for invoice in available_invoices:
+        print("Invoice number:", invoice.invoice_no)
+
+    quantities = request.POST.getlist('qty[]')
+        
+    if quantities:
+        for quantity in quantities:
+            if int(quantity) <= 0:
+                message = "Quantity cannot be zero or negative"
+                alert_script = f'<script>alert("{message}");window.history.back();</script>'
+                return HttpResponse(alert_script)
+    else:
+        message = "Quantity list is empty"
+        alert_script = f'<script>alert("{message}");window.history.back();</script>'
+        return HttpResponse(alert_script)
+    
+
+    payment_method = request.POST.get("method")
+    if not payment_method:
+        message = "Please select a payment method"
+        alert_script = f'<script>alert("{message}");window.history.back();</script>'
+        return HttpResponse(alert_script)
+
+    
     part = party.objects.get(id=party_id)
     return_no=request.POST.get('creditno')
-    partmob=request.POST.get('partyPhoneNumber')
+    partmob=request.POST.get('partyPhone')
     creditdate=request.POST.get('cr_date')
     invoiceno=request.POST.get('inv_no')
   
@@ -11486,6 +11174,7 @@ def add_creditnote(request):
     grandtotal=request.POST.get('grandtotal')
     descptn=request.POST.get('description')
 
+    
     if pay_method.isdigit():
       pay_method = BankModel.objects.get(id=pay_method).bank_name
 
@@ -11521,6 +11210,8 @@ def add_creditnote(request):
         CreditNoteItem.objects.create(product = itm,qty=ele[1],discount=ele[2],total=ele[3],creditnote=return_no,company=cmp)
 
     
+
+
     CreditNote.objects.filter(company=cmp).update(tot_credit_no=F('tot_credit_no') + 1)
     
     creditnote.tot_credit_no = creditnote.retrn_no
@@ -11530,8 +11221,35 @@ def add_creditnote(request):
       return redirect('create_sale')
     if 'save' in request.POST:
       return redirect('creditnote_list')
-  return render(request, 'company/create_sale.html')
+  return render(request, 'company/create_sale.html',{'available_invoices': available_invoices})
 
+def get_available_invoices(request):
+    if request.method == 'GET' and request.is_ajax():
+        party_id = request.GET.get('party_id')
+        print("Requested party ID:", party_id)
+
+        party_invoices = SalesInvoice.objects.filter(party_id=party_id)
+        print("Party invoices:")
+        for invoice in party_invoices:
+            print("Invoice number:", invoice.invoice_no)
+        
+        used_invoice_numbers = CreditNote.objects.filter(invoiceno__in=party_invoices.values_list('invoice_no', flat=True))
+        print("Used invoice numbers:")
+        for invoice in used_invoice_numbers:
+            print("Invoice number:", invoice.invoiceno)
+
+        available_invoices = party_invoices.exclude(invoice_no__in=used_invoice_numbers.values_list('invoiceno', flat=True))
+        print("Available invoices:")
+        for invoice in available_invoices:
+            print("Invoice number:", invoice.invoice_no)
+        
+        available_invoice_numbers = list(available_invoices.values('invoice_no'))
+        print("Available invoice numbers:", available_invoice_numbers)
+        
+        return JsonResponse({'available_invoices': available_invoice_numbers})
+    else:
+        print("Invalid request method or not an AJAX request")
+        return JsonResponse({'error': 'Invalid request'}, status=400)
 
 def new_creditnote_item(request):
   print('items')
@@ -11912,37 +11630,37 @@ def get_inv_date(request):
 
     return JsonResponse({'bill_date': bill_date})
 def salesinvoicedata(request):
-      try:
+    try:
         selected_party_id = request.POST.get('id')
-        print('id',selected_party_id)
+        print('id', selected_party_id)
         party_instance = get_object_or_404(party, id=selected_party_id)
-        print('instance',party_instance)
+        print('instance', party_instance)
         phone_number = party_instance.contact
         party_id = party_instance.id
-        balnce =party_instance.openingbalance
-    
-    
-        # Initialize lists to store multiple invoice numbers and dates
+        balance = party_instance.openingbalance
+
+        # Subquery to get the used invoice numbers
+        used_invoice_numbers_subquery = CreditNote.objects.filter(invoiceno__in=Subquery(SalesInvoice.objects.filter(party=party_instance).values('invoice_no'))).values('invoiceno')
+
+        # Fetch only the invoices belonging to the selected party and not used in credit notes
+        invoice_instances = SalesInvoice.objects.filter(party=party_instance).exclude(invoice_no__in=Subquery(used_invoice_numbers_subquery))
+
+        print('invoice_instances', invoice_instances)
+
         invoice_numbers = []
         invoice_dates = []
 
-        # Retrieve all SalesInvoice instances for the party
-        invoice_instances = SalesInvoice.objects.filter(party=party_instance)
-        print('invoice_instances',invoice_instances)
-
-        # Loop through each SalesInvoice instance and collect invoice numbers and dates
         for invoice_instance in invoice_instances:
             invoice_numbers.append(invoice_instance.invoice_no)
-            invoice_dates.append(invoice_instance.date)  # Format date as needed
+            invoice_dates.append(invoice_instance.date)
 
-        # Return a JSON response with the list of invoice numbers and dates
         if not invoice_numbers and not invoice_dates:
-            return JsonResponse({'invoice_numbers': ['noinvoice'], 'invoice_dates': ['nodate'],'phone': phone_number, 'id': party_id,'balance':balnce})
+            return JsonResponse({'invoice_numbers': ['No Invoice'], 'invoice_dates': ['No Date'], 'phone': phone_number, 'id': party_id, 'balance': balance})
 
-        return JsonResponse({'invoice_numbers': invoice_numbers, 'invoice_dates': invoice_dates,'phone': phone_number, 'id': party_id,'balance':balnce})
+        return JsonResponse({'invoice_numbers': invoice_numbers, 'invoice_dates': invoice_dates, 'phone': phone_number, 'id': party_id, 'balance': balance})
 
-      except party.DoesNotExist:
-        return JsonResponse({'error': 'Party not found'}) 
+    except party.DoesNotExist:
+        return JsonResponse({'error': 'Party not found'})
     
 @require_POST
 @csrf_exempt
@@ -12729,10 +12447,8 @@ def Admin_Accept_payment_term(request,id):
 def Admin_Reject_payment_term(request,id):
   data= Admin_Notification.objects.get(id=id)
   
-
   data.PaymentTerms_updation.delete()
   data.delete()
-
 
   return redirect('admin_notification') 
   
@@ -12772,63 +12488,9 @@ def Com_Change_payment_terms(request):
       
 def Admin_Reject_modules_list(request,id):
   data= Admin_Notification.objects.get(id=id)
-  
-
   data.Modules_List.delete()
   data.delete()
-
-
   return redirect('admin_notification')
-
-def Admin_Accept_term_and_module(request,id):
-  data= Admin_Notification.objects.get(id=id)
-  comp = company.objects.get(id=data.company_id.id)
-
-  if data.distributor_id:
-    distr = Distributors_details.objects.get(id=data.distributor_id.id)
-    distr.payment_term = data.PaymentTerms_updation.Payment_Term
-
-    start_date=date.today()
-    days=int(data.PaymentTerms_updation.Payment_Term.days)
-
-    end= date.today() + timedelta(days=days)
-    distr.End_date=end
-
-    distr.save()
-    n = Distributor_Notification.objects.filter(distributor_id= data.distributor_id)  
-    for i in n:
-      if i.company_id:
-          print(i)
-      else: 
-          i.status = 'old'
-          i.save()
-  else:
-    # d = company.objects.get(id=data.company_id.id)
-    comp.dateperiod = data.PaymentTerms_updation.Payment_Term
-    start_date=date.today()
-    days=int(data.PaymentTerms_updation.Payment_Term.days)
-
-    end= date.today() + timedelta(days=days)
-    comp.End_date=end
-    comp.save()
-
-  data.status ='old'  
-  data.save()
-  old=modules_list.objects.get(company=comp.id,status='New')
-  old.delete()
-  mod=modules_list.objects.get(company=comp.id,status='Pending')  
-  mod.status='New'
-  mod.save()
-  data1=modules_list.objects.filter(company=comp.id).update(update_action=0)
-  return redirect('adminhome')
-
-def Admin_Reject_term_and_module(request,id):
-
-  data= Admin_Notification.objects.get(id=id)
-  data.PaymentTerms_updation.delete()
-  data.Modules_List.delete()
-  data.delete()
-  return redirect('adminhome')
   
   
 def Distributor_Reject_modules_list(request,id):
@@ -12912,18 +12574,7 @@ def company_remove_staffs(request,id):
   
   staff.delete()
   return redirect('View_staff') 
-
-def Term_Extension(request):
-  sid = request.session.get('staff_id')
-  staff =  staff_details.objects.get(id=sid)
-  allmodules= modules_list.objects.get(company=staff.company,status='New')
-  terms=payment_terms.objects.all()
-  context = {
-      'staff' : staff,
-      'allmodules':allmodules,
-      'terms':terms
-    }
-  return render(request,'company/term_extension.html',context)
+  
   
 def com_notification(request):
   sid = request.session.get('staff_id')
@@ -12981,123 +12632,16 @@ def Restart_payment_terms(request):
         else:
           noti = Distributor_Notification(distributor_id=com.Distributors,company_id=com,PaymentTerms_updation = data1,Title = "Change Payment Terms",Discription = com.user.first_name+''+ com.user.last_name+ " is change Payment Terms")
           noti.save()
+
+
+    
+    
       return redirect('log_page')
       
-def Intrested_Company(request):
-  staff_id = request.session['staff_id']
-  staff =  staff_details.objects.get(id = staff_id)
-
-  com =  company.objects.get(user_id =request.user.id)
-
-
-  if request.method == 'POST':
-    term = request.POST['payment_term']
-    if Payment_Terms_updation.objects.filter(company_id=com,user_Id = request.user,status= "New"):
-       Payment_Terms_updation.objects.filter(company_id=com,user_Id = request.user,status= "New").delete()
-    pay = payment_terms.objects.get(id=term)
-
-    pay = Payment_Terms_updation(company_id=com,user_Id = request.user,Payment_Term = pay)
-    pay.save()   
-
-    if modules_list.objects.filter(company=com.id, status='Pending'):
-       modules_list.objects.filter(company=com.id, status='Pending').delete()
-
-    c1=request.POST.get('c1')
-    c2=request.POST.get('c2')
-    c3=request.POST.get('c3')
-    c4=request.POST.get('c4')
-    c5=request.POST.get('c5')
-    c6=request.POST.get('c6')
-    c7=request.POST.get('c7')
-    c8=request.POST.get('c8')
-    c9=request.POST.get('c9')
-    c10=request.POST.get('c10')
-    c11=request.POST.get('c11')
-    c12=request.POST.get('c12')
-    c13=request.POST.get('c13')
-    c14=request.POST.get('c14')
-    c15=request.POST.get('c15')
-
-    # mod_list1 = modules_list.objects.filter(company=com.id, status='Pending', update_action=1).latest('id')
-
-    mod_list1 = modules_list(
-        company=com,
-        sales_invoice=c1,
-        Estimate=c2,
-        Payment_in=c3,
-        sales_order=c4,
-        Delivery_challan=c5,
-        sales_return=c6,
-        Purchase_bills=c7,
-        Payment_out=c8,
-        Purchase_order=c9,
-        Purchase_return=c10,
-        Bank_account=c11,
-        Cash_in_hand=c12,
-        cheques=c13,
-        Loan_account=c14,
-        Upi=c15,
-        status='Pending'
-    )
-    mod_list1.save()
-
-    # modules_list.objects.filter(company=com.id, status='Pending').update(update_action=1)
-
-
-    if com.reg_action == 'self':
-      existing_notifications = Admin_Notification.objects.filter(
-          Q(company_id=com, PaymentTerms_updation__isnull=False) |
-          Q(company_id=com, Modules_List__isnull=False) |
-          Q(company_id=com, Modules_List__isnull=False, PaymentTerms_updation__isnull=False, status='New')
-      )
-      existing_notifications.delete()
-
-      noti = Admin_Notification(
-          company_id=com,
-          user_Id=request.user,
-          PaymentTerms_updation=pay,
-          Modules_List=mod_list1,
-          Title="Extend Payment Terms",
-          Discription=com.company_name + " request for Payment Terms extension"
-      )
-      noti.save()
-      com.Trial_Feedback = 'Interest'
-      com.save()
-
-    else:
-      existing_notifications = Admin_Notification.objects.filter(
-          Q(company_id=com, PaymentTerms_updation__isnull=False) |
-          Q(company_id=com, Modules_List__isnull=False) |
-          Q(company_id=com, Modules_List__isnull=False, PaymentTerms_updation__isnull=False, status='New')
-      )
-      existing_notifications.delete()
-
-      noti = Admin_Notification(
-          company_id=com,
-          user_Id=request.user,
-          PaymentTerms_updation=pay,
-          Modules_List=mod_list1,
-          Title="Extend Payment Terms",
-          Discription=com.company_name + " request for Payment Terms extension"
-      )
-      noti.save()
-      com.Trial_Feedback = 'Interest'
-      com.save()
-
-
-    staff.company.Trial_Feedback = 'Intrest'
-    staff.company.save()
-    notif = Company_Notification.objects.filter(company_id = staff.company)
-    for n in notif:
-      n.status = 'Old'
-      n.save()
-
-    return redirect('homepage')
-  return redirect('com_notification')
-
+      
 def Intrest(request):
-
   staff_id = request.session['staff_id']
+
   staff =  staff_details.objects.get(id = staff_id)
   staff.company.Trial_Feedback = 'Intrest'
   staff.company.save()
@@ -13106,11 +12650,13 @@ def Intrest(request):
     n.status = 'Old'
     n.save()
 
+  
+
   return redirect('homepage')
 
 def NotIntrest(request):
-
   staff_id = request.session['staff_id']
+
   staff =  staff_details.objects.get(id = staff_id)
   staff.company.Trial_Feedback = 'NotIntrest'
   staff.company.save()
@@ -15339,8 +14885,9 @@ def view_cashinhand(request):
     cmp = get_object_or_404(company, id=staff.company.id)
     allmodules = get_object_or_404(modules_list, company=cmp, status='New')
     cash = cash_in_hand.objects.filter(company=cmp)
-
+    bnk = BankTransactionModel.objects.filter(company=cmp).filter(Q(type__iexact='cash withdraw') | Q(type__iexact='cash deposit'))
     bill = PurchaseBill.objects.filter(company=cmp, pay_method__iexact='Cash', advance__gt=0)
+
 
     porder = PurchaseOrder.objects.filter(pay_method__iexact='Cash', company=cmp,advance__gt=0)
     pdebt = purchasedebit.objects.filter(payment_type__iexact='Cash', company=cmp,paid_amount__gt=0)
@@ -15354,7 +14901,7 @@ def view_cashinhand(request):
     loanadd = TransactionTable.objects.filter(loan_received__iexact='cash', company=cmp,payment__gt=0)
     lrepay = TransactionTable.objects.filter(loan_received__iexact='CASH', company=cmp,payment__gt=0)
 
-    transaction_querysets = [cash, bill, porder, pdebt, paymentouts, sinv, spin, sorder, scredit, exp, loan, loanadd, lrepay]
+    transaction_querysets = [cash, bill, porder, pdebt, paymentouts, sinv, spin, sorder, scredit, exp, loan, loanadd, lrepay,bnk]
 
     # Check if any of the querysets are empty
     if not any(transaction_querysets):
@@ -15363,7 +14910,7 @@ def view_cashinhand(request):
 
     context = {'staff': staff, 'allmodules': allmodules, 'cash': cash, 'bill': bill, 'porder': porder,
                'pdebt': pdebt, 'sinv': sinv, 'spin': spin, 'sorder': sorder, 'scredit': scredit, 'exp': exp,
-               'loan': loan, 'loanadd': loanadd, 'lrepay': lrepay, 'paymentouts': paymentouts}
+               'loan': loan, 'loanadd': loanadd, 'lrepay': lrepay, 'paymentouts': paymentouts,'bnk':bnk}
     return render(request, 'company/cashinhandlist.html', context)
 
 
@@ -15479,7 +15026,7 @@ def cashinhand_statement(request):
   cmp = company.objects.get(id=staff.company.id)
   allmodules= modules_list.objects.get(company=cmp,status='New')
   cash = cash_in_hand.objects.filter(company=cmp)
-
+  bnk = BankTransactionModel.objects.filter(company=cmp).filter(Q(type__iexact='cash withdraw') | Q(type__iexact='cash deposit'))
   bill = PurchaseBill.objects.filter(company=cmp, pay_method__iexact='Cash', advance__gt=0)
 
   porder = PurchaseOrder.objects.filter(pay_method__iexact='Cash', company=cmp,advance__gt=0)
@@ -15495,7 +15042,7 @@ def cashinhand_statement(request):
   lrepay = TransactionTable.objects.filter(loan_received__iexact='CASH', company=cmp,payment__gt=0)
 
   context = {'staff':staff,'allmodules':allmodules,'cash':cash,'bill':bill,'porder':porder,'pdebt':pdebt,'sinv':sinv,
-  'spin':spin,'sorder':sorder,'scredit':scredit,'exp':exp,'cmp':cmp,'loan':loan,'loanadd':loanadd,'lrepay':lrepay,'paymentouts': paymentouts}
+  'spin':spin,'sorder':sorder,'scredit':scredit,'exp':exp,'cmp':cmp,'loan':loan,'loanadd':loanadd,'lrepay':lrepay,'paymentouts': paymentouts,'bnk':bnk}
   return render(request,'company/cash_in_hand_statement.html',context)
 
 
@@ -15515,7 +15062,7 @@ def vayapar_cashInHandStatementPdf(request):
     
   
     cash = cash_in_hand.objects.filter(company=cmp)
-
+    bnk = BankTransactionModel.objects.filter(company=cmp).filter(Q(type__iexact='cash withdraw') | Q(type__iexact='cash deposit'))
     bill = PurchaseBill.objects.filter(company=cmp, pay_method__iexact='Cash', advance__gt=0)
 
     porder = PurchaseOrder.objects.filter(pay_method__iexact='Cash', company=cmp,advance__gt=0)
@@ -15531,7 +15078,7 @@ def vayapar_cashInHandStatementPdf(request):
     lrepay = TransactionTable.objects.filter(loan_received__iexact='CASH', company=cmp,payment__gt=0)
   else:
     cash = cash_in_hand.objects.filter(company=cmp, cash_date__range = [startDate, endDate])
-   
+    bnk = BankTransactionModel.objects.filter(company=cmp,date__range = [startDate, endDate]).filter(Q(type__iexact='cash withdraw') | Q(type__iexact='cash deposit'))
     bill = PurchaseBill.objects.filter(pay_method='Cash',company=cmp,advance__gt=0,billdate__range = [startDate, endDate])
     porder = PurchaseOrder.objects.filter(pay_method='Cash',company=cmp,advance__gt=0,orderdate__range = [startDate, endDate])
     pdebt = purchasedebit.objects.filter(payment_type='Cash',company=cmp,paid_amount__gt=0,debitdate__range = [startDate, endDate])
@@ -15547,7 +15094,7 @@ def vayapar_cashInHandStatementPdf(request):
     lrepay=TransactionTable.objects.filter(loan_received='CASH',company=cmp,payment__gt=0,date__range =[startDate, endDate])
 
   context = {'staff':staff,'cash':cash,'bill':bill,'porder':porder,'pdebt':pdebt,'sinv':sinv,
-            'spin':spin,'sorder':sorder,'scredit':scredit,'exp':exp,'cmp':cmp,'balance':bal,'loan':loan,'loanadd':loanadd,'lrepay':lrepay,'paymentouts': paymentouts} 
+            'spin':spin,'sorder':sorder,'scredit':scredit,'exp':exp,'cmp':cmp,'balance':bal,'loan':loan,'loanadd':loanadd,'lrepay':lrepay,'paymentouts': paymentouts,'bnk':bnk} 
 
   template_path = 'company/CashInHandStatement_Pdf.html'
   fname = 'cash_in_hand'
@@ -15589,7 +15136,7 @@ def cashinhandEmail(request):
 
       if startDate == None or endDate == None:
         cash = cash_in_hand.objects.filter(company=cmp)
-
+        bnk = BankTransactionModel.objects.filter(company=cmp).filter(Q(type__iexact='cash withdraw') | Q(type__iexact='cash deposit'))
         bill = PurchaseBill.objects.filter(company=cmp, pay_method__iexact='Cash', advance__gt=0)
 
         porder = PurchaseOrder.objects.filter(pay_method__iexact='Cash', company=cmp,advance__gt=0)
@@ -15605,7 +15152,7 @@ def cashinhandEmail(request):
         lrepay = TransactionTable.objects.filter(loan_received__iexact='CASH', company=cmp,payment__gt=0)
       else:
         cash = cash_in_hand.objects.filter(company=cmp, cash_date__range = [startDate, endDate])
-      
+        bnk = BankTransactionModel.objects.filter(company=cmp,date__range = [startDate, endDate]).filter(Q(type__iexact='cash withdraw') | Q(type__iexact='cash deposit'))
         bill = PurchaseBill.objects.filter(pay_method='Cash',company=cmp,advance__gt=0,billdate__range = [startDate, endDate])
         porder = PurchaseOrder.objects.filter(pay_method='Cash',company=cmp,advance__gt=0,orderdate__range = [startDate, endDate])
         pdebt = purchasedebit.objects.filter(payment_type='Cash',company=cmp,paid_amount__gt=0,debitdate__range = [startDate, endDate])
@@ -15621,7 +15168,7 @@ def cashinhandEmail(request):
         lrepay=TransactionTable.objects.filter(loan_received='CASH',company=cmp,payment__gt=0,date__range =[startDate, endDate])
 
   context = {'staff':staff,'cash':cash,'bill':bill,'porder':porder,'pdebt':pdebt,'sinv':sinv,
-            'spin':spin,'sorder':sorder,'scredit':scredit,'exp':exp,'cmp':cmp,'balance':bal,'loan':loan,'loanadd':loanadd,'lrepay':lrepay,'paymentouts': paymentouts} 
+            'spin':spin,'sorder':sorder,'scredit':scredit,'exp':exp,'cmp':cmp,'balance':bal,'loan':loan,'loanadd':loanadd,'lrepay':lrepay,'paymentouts': paymentouts,'bnk':bnk} 
   template_path = 'company/cashinhandEmail.html'
   template = get_template(template_path)
 
@@ -15646,6 +15193,7 @@ def cashInHandGraph(request, period):
   allmodules= modules_list.objects.get(company=cmp,status='New')
   print('period==',period)
   cash = cash_in_hand.objects.filter(company=cmp)
+  bnk = BankTransactionModel.objects.filter(company=cmp).filter(Q(type__iexact='cash withdraw') | Q(type__iexact='cash deposit'))
   bill = PurchaseBill.objects.filter(company=cmp, pay_method__iexact='Cash', advance__gt=0)
 
   porder = PurchaseOrder.objects.filter(pay_method__iexact='Cash', company=cmp,advance__gt=0)
@@ -15674,7 +15222,12 @@ def cashInHandGraph(request, period):
           cashInflow += float(i.cash_cash)
         if i.cash_date.year == yr and i.cash_adjust.lower() == 'reduce cash':
           cashOutflow += float(i.cash_cash)
-
+      
+      for i in bnk:
+        if i.date.year == yr and i.type.lower() == 'cash deposit':
+          cashInflow += float(i.amount)
+        if i.date.year == yr and i.type.lower() == 'cash withdraw':
+          cashOutflow += float(i.amount)
      
       for i in sinv:
         if i.date.year == yr:
@@ -15746,7 +15299,12 @@ def cashInHandGraph(request, period):
           cashInflow += float(i.cash_cash)
         if i.cash_date.year == current_year and i.cash_date.month == month and i.cash_adjust.lower() == 'reduce cash':
           cashOutflow += float(i.cash_cash)
-
+      
+      for i in bnk:
+        if i.date.year == current_year and i.date.month == month and i.type.lower() == 'cash deposit':
+          cashInflow += float(i.amount)
+        if i.date.year == current_year and i.date.month == month and i.type.lower() == 'cash withdraw':
+          cashOutflow += float(i.amount)
       
       for i in sinv:
         if i.date.year == current_year and i.date.month == month:
@@ -16125,3 +15683,4902 @@ def addEstItem(request):
         Item_History.objects.create(Item = item_data,company=com,staff=staff,action='Created').save()
 
       return JsonResponse({'status':True ,'value':val})
+      
+#sruthi
+
+def upilist(request):
+  sid = request.session.get('staff_id')
+  staff =  staff_details.objects.get(id=sid)
+  cmp = company.objects.get(id=staff.company.id)
+  allmodules= modules_list.objects.get(company=cmp,status='New')
+  sid = request.session.get('staff_id')
+  staff =  staff_details.objects.get(id=sid)
+  cmp = company.objects.get(id=staff.company.id)
+  allmodules= modules_list.objects.get(company=cmp,status='New')
+  pur_bill = PurchaseBill.objects.filter(pay_method__iexact ='upi', company=cmp , advance__gt = 0)
+  pur_order = PurchaseOrder.objects.filter(pay_method__iexact ='upi', company=cmp , advance__gt = 0)
+  pur_debit = purchasedebit.objects.filter(payment_type__iexact ='upi', company=cmp , paid_amount__gt = 0)
+  
+  pay_outs = PaymentOut.objects.filter(company=cmp,pay_method__iexact ='upi')
+  sal_inv = SalesInvoice.objects.filter(paymenttype__iexact ='upi', company=cmp , paidoff__gt = 0)
+  pay_in = PaymentIn.objects.filter(payment_method__iexact ='upi', company=cmp , payment_received__gt = 0)
+  sal_order = salesorder.objects.filter(payment_method__iexact ='upi', comp=cmp , paid__gt = 0)
+
+  exp = Expense.objects.filter(payment_type__iexact='upi', staff_id__company=cmp,paid__gt = 0)
+  cre_note = CreditNote.objects.filter(pay_method__iexact ='upi', company=cmp , advance__gt = 0)
+  loan = LoanAccounts.objects.filter(loan_received__iexact ='upi', company=cmp ,loan_amount__gt = 0)
+  emi = TransactionTable.objects.filter(transaction_type__iexact = 'emi',loan_received__iexact ='upi', company=cmp ,total_amount__gt = 0)
+
+  pur_bill_count = PurchaseBill.objects.filter(pay_method__iexact ='upi', company=cmp , advance__gt = 0).count()
+  pur_order_count = PurchaseOrder.objects.filter(pay_method__iexact ='upi', company=cmp , advance__gt = 0).count()
+  pur_debit_count = purchasedebit.objects.filter(payment_type__iexact ='upi', company=cmp , paid_amount__gt = 0).count()
+
+  pay_outs_count = PaymentOut.objects.filter(company=cmp,pay_method__iexact ='upi').count()
+  sal_inv_count = SalesInvoice.objects.filter(paymenttype__iexact ='upi', company=cmp , paidoff__gt = 0).count()
+  pay_in_count = PaymentIn.objects.filter(payment_method__iexact ='upi', company=cmp , payment_received__gt = 0).count()
+  sal_order_count = salesorder.objects.filter(payment_method__iexact ='upi', comp=cmp , paid__gt = 0).count()
+
+  exp_count = Expense.objects.filter(payment_type__iexact='upi', staff_id__company=cmp,paid__gt = 0).count()
+  cre_note_count = CreditNote.objects.filter(pay_method__iexact ='upi', company=cmp , advance__gt = 0).count()
+  loan_count = LoanAccounts.objects.filter(loan_received__iexact ='upi', company=cmp ,loan_amount__gt = 0).count()
+  emi_count = TransactionTable.objects.filter(transaction_type__iexact = 'emi',loan_received__iexact ='upi', company=cmp ,total_amount__gt = 0).count()
+
+
+  if ( pur_bill_count == 0 and pur_order_count == 0 and pur_debit_count == 0 and pay_outs_count == 0 and sal_inv_count == 0 and
+       pay_in_count == 0 and sal_order_count == 0 and cre_note_count == 0 and loan_count == 0 and emi_count == 0 and exp_count == 0) :
+    context = {'staff':staff, 'allmodules':allmodules}
+    return render(request,'company/upiempty.html',context)
+  
+  context = {'staff':staff,'allmodules':allmodules,'pur_bill':pur_bill , 'pur_order': pur_order, 'pur_debit':pur_debit,
+              'pay_out': pay_outs ,'sal_inv': sal_inv , 'pay_in': pay_in , 'sal_order': sal_order , 'cre_note': cre_note, 'loan': loan,
+              'emi': emi, 'exp': exp}
+  return render(request,'company/upilist.html',context)
+
+def upistatement(request):
+  sid = request.session.get('staff_id')
+  staff =  staff_details.objects.get(id=sid)
+  cmp = company.objects.get(id=staff.company.id)
+  allmodules= modules_list.objects.get(company=cmp,status='New')
+  pur_bill = PurchaseBill.objects.filter(pay_method__iexact ='upi', company=cmp , advance__gt = 0)
+  pur_order = PurchaseOrder.objects.filter(pay_method__iexact ='upi', company=cmp , advance__gt = 0)
+  pur_debit = purchasedebit.objects.filter(payment_type__iexact ='upi', company=cmp , paid_amount__gt = 0)
+
+  pay_outs = PaymentOut.objects.filter(company=cmp,pay_method__iexact ='upi')
+  sal_inv = SalesInvoice.objects.filter(paymenttype__iexact ='upi', company=cmp , paidoff__gt = 0)
+  pay_in = PaymentIn.objects.filter(payment_method__iexact ='upi', company=cmp , payment_received__gt = 0)
+  sal_order = salesorder.objects.filter(payment_method__iexact ='upi', comp=cmp , paid__gt = 0)
+ 
+  exp = Expense.objects.filter(payment_type__iexact='cheque', staff_id__company=cmp,paid__gt = 0)
+  cre_note = CreditNote.objects.filter(pay_method__iexact ='upi', company=cmp , advance__gt = 0)
+  loan = LoanAccounts.objects.filter(loan_received__iexact ='upi', company=cmp ,loan_amount__gt = 0)
+  emi = TransactionTable.objects.filter(transaction_type__iexact = 'emi',loan_received__iexact ='upi', company=cmp ,total_amount__gt = 0)
+
+
+  
+  context = {'staff':staff,'allmodules':allmodules,'pur_bill':pur_bill , 'pur_order': pur_order, 'pur_debit':pur_debit,
+              'pay_out': pay_outs ,'sal_inv': sal_inv , 'pay_in': pay_in , 'sal_order': sal_order , 'cre_note': cre_note, 'loan': loan,
+              'emi': emi,'company':cmp, 'exp': exp}
+  return render(request,'company/upistatement.html',context)
+
+
+def cheque_list(request):
+  sid = request.session.get('staff_id')
+  staff =  staff_details.objects.get(id=sid)
+  cmp = company.objects.get(id=staff.company.id)
+  allmodules= modules_list.objects.get(company=cmp,status='New')
+  pur_bill = PurchaseBill.objects.filter(pay_method__iexact ='cheque', company=cmp , advance__gt = 0)
+  pur_order = PurchaseOrder.objects.filter(pay_method__iexact ='cheque', company=cmp , advance__gt = 0)
+  pur_debit = purchasedebit.objects.filter(payment_type__iexact ='cheque', company=cmp , paid_amount__gt = 0)
+  
+  pay_outs = PaymentOut.objects.filter(company=cmp,pay_method__iexact ='cheque')
+  sal_inv = SalesInvoice.objects.filter(paymenttype__iexact ='cheque', company=cmp , paidoff__gt = 0)
+  pay_in = PaymentIn.objects.filter(payment_method__iexact ='cheque', company=cmp , payment_received__gt = 0)
+  sal_order = salesorder.objects.filter(payment_method__iexact ='cheque', comp=cmp , paid__gt = 0)
+  exp = Expense.objects.filter(payment_type__iexact='cheque', staff_id__company=cmp,paid__gt = 0)
+
+  cre_note = CreditNote.objects.filter(pay_method__iexact ='cheque', company=cmp , advance__gt = 0)
+  loan = LoanAccounts.objects.filter(loan_received__iexact ='cheque', company=cmp ,loan_amount__gt = 0)
+  emi = TransactionTable.objects.filter(transaction_type__iexact = 'emi',loan_received__iexact ='cheque', company=cmp ,total_amount__gt = 0)
+
+  pur_bill_count = PurchaseBill.objects.filter(pay_method__iexact ='cheque', company=cmp , advance__gt = 0).count()
+  pur_order_count = PurchaseOrder.objects.filter(pay_method__iexact ='cheque', company=cmp , advance__gt = 0).count()
+  pur_debit_count = purchasedebit.objects.filter(payment_type__iexact ='cheque', company=cmp , paid_amount__gt = 0).count()
+ 
+  pay_outs_count = PaymentOut.objects.filter(company=cmp,pay_method__iexact ='cheque').count()
+  sal_inv_count = SalesInvoice.objects.filter(paymenttype__iexact ='cheque', company=cmp , paidoff__gt = 0).count()
+  pay_in_count = PaymentIn.objects.filter(payment_method__iexact ='cheque', company=cmp , payment_received__gt = 0).count()
+  sal_order_count = salesorder.objects.filter(payment_method__iexact ='cheque', comp=cmp , paid__gt = 0).count()
+  exp_count = Expense.objects.filter(payment_type__iexact='cheque', staff_id__company=cmp,paid__gt = 0).count()
+
+  cre_note_count = CreditNote.objects.filter(pay_method__iexact ='cheque', company=cmp , advance__gt = 0).count()
+  loan_count = LoanAccounts.objects.filter(loan_received__iexact ='cheque', company=cmp ,loan_amount__gt = 0).count()
+  emi_count = TransactionTable.objects.filter(transaction_type__iexact = 'emi',loan_received__iexact ='cheque', company=cmp ,total_amount__gt = 0).count()
+
+
+  if ( pur_bill_count == 0 and pur_order_count == 0 and pur_debit_count == 0 and pay_outs_count == 0 and sal_inv_count == 0 and
+       pay_in_count == 0 and sal_order_count == 0 and cre_note_count == 0 and loan_count == 0 and emi_count == 0 and exp_count == 0) :
+    context = {'staff':staff, 'allmodules':allmodules}
+    return render(request,'company/cheque_empty.html',context)
+  
+  context = {'staff':staff,'allmodules':allmodules,'pur_bill':pur_bill , 'pur_order': pur_order, 'pur_debit':pur_debit,
+              'pay_out': pay_outs ,'sal_inv': sal_inv , 'pay_in': pay_in , 'sal_order': sal_order , 'cre_note': cre_note, 'loan': loan,
+              'emi': emi, 'exp': exp}
+  return render(request,'company/cheque_list.html',context)
+
+
+
+def cheque_statement(request):
+  sid = request.session.get('staff_id')
+  staff =  staff_details.objects.get(id=sid)
+  cmp = company.objects.get(id=staff.company.id)
+  allmodules= modules_list.objects.get(company=cmp,status='New')
+  pur_bill = PurchaseBill.objects.filter(pay_method__iexact ='cheque', company=cmp , advance__gt = 0)
+  pur_order = PurchaseOrder.objects.filter(pay_method__iexact ='cheque', company=cmp , advance__gt = 0)
+  pur_debit = purchasedebit.objects.filter(payment_type__iexact ='cheque', company=cmp , paid_amount__gt = 0)
+  
+  pay_outs = PaymentOut.objects.filter(company=cmp,pay_method__iexact ='cheque')
+  sal_inv = SalesInvoice.objects.filter(paymenttype__iexact ='cheque', company=cmp , paidoff__gt = 0)
+  pay_in = PaymentIn.objects.filter(payment_method__iexact ='cheque', company=cmp , payment_received__gt = 0)
+  sal_order = salesorder.objects.filter(payment_method__iexact ='cheque', comp=cmp , paid__gt = 0)
+ 
+  exp = Expense.objects.filter(payment_type__iexact='cheque', staff_id__company=cmp,paid__gt = 0)
+  cre_note = CreditNote.objects.filter(pay_method__iexact ='cheque', company=cmp , advance__gt = 0)
+  loan = LoanAccounts.objects.filter(loan_received__iexact ='cheque', company=cmp ,loan_amount__gt = 0)
+  emi = TransactionTable.objects.filter(transaction_type__iexact = 'emi',loan_received__iexact ='cheque', company=cmp ,total_amount__gt = 0)
+
+  
+  context = {'staff':staff,'allmodules':allmodules,'pur_bill':pur_bill , 'pur_order': pur_order, 'pur_debit':pur_debit,
+              'pay_out': pay_outs ,'sal_inv': sal_inv , 'pay_in': pay_in , 'sal_order': sal_order , 'cre_note': cre_note, 'loan': loan,
+              'emi': emi,'company':cmp, 'exp':exp}
+  return render(request,'company/cheque_statement.html',context)
+
+def upiEmail(request):
+  if request.user:
+        try:
+            if request.method == 'POST':
+                emails_string = request.POST['email_ids']
+
+                # Split the string by commas and remove any leading or trailing whitespace
+                emails_list = [email.strip() for email in emails_string.split(',')]
+                email_message = request.POST['email_message']
+                print(emails_list)
+
+                sid = request.session.get('staff_id')
+                staff =  staff_details.objects.get(id=sid)
+                cmp = company.objects.get(id=staff.company.id) 
+               
+                pur_bill = PurchaseBill.objects.filter(pay_method__iexact ='upi', company=cmp , advance__gt = 0)
+                pur_order = PurchaseOrder.objects.filter(pay_method__iexact ='upi', company=cmp , advance__gt = 0)
+                pur_debit = purchasedebit.objects.filter(payment_type__iexact ='upi', company=cmp , paid_amount__gt = 0)
+                
+                pay_outs = PaymentOut.objects.filter(company=cmp,pay_method__iexact ='upi')
+                sal_inv = SalesInvoice.objects.filter(paymenttype__iexact ='upi', company=cmp , paidoff__gt = 0)
+                pay_in = PaymentIn.objects.filter(payment_method__iexact ='upi', company=cmp , payment_received__gt = 0)
+                sal_order = salesorder.objects.filter(payment_method__iexact ='upi', comp=cmp , paid__gt = 0)
+                
+                exp = Expense.objects.filter(payment_type__iexact='upi', staff_id__company=cmp,paid__gt = 0)
+                cre_note = CreditNote.objects.filter(pay_method__iexact ='upi', company=cmp , advance__gt = 0)
+                loan = LoanAccounts.objects.filter(loan_received__iexact ='upi', company=cmp ,loan_amount__gt = 0)
+                emi = TransactionTable.objects.filter(transaction_type__iexact = 'emi',loan_received__iexact ='upi', company=cmp ,total_amount__gt = 0)
+
+                context = {'pur_bill':pur_bill , 'pur_order': pur_order, 'pur_debit':pur_debit,
+                'pay_out': pay_outs ,'sal_inv': sal_inv , 'pay_in': pay_in , 'sal_order': sal_order , 'cre_note': cre_note, 'loan': loan,
+                'emi': emi,'company':cmp, 'exp': exp}        
+                  
+                template_path = 'company/upiEmail.html'
+                template = get_template(template_path)
+
+                html  = template.render(context)
+                result = BytesIO()
+                pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+                pdf = result.getvalue()
+                filename = f'upitransaction.pdf'
+                subject = f"upitransaction"
+                email = EmailMessage(subject, f"Hi,\nPlease find the attached UPI transaction - File- \n{email_message}\n\n--\nRegards,\n{cmp.company_name}\n{cmp.address}\n{cmp.state} - {cmp.country}\n{cmp.contact}", from_email=settings.EMAIL_HOST_USER, to=emails_list)
+                email.attach(filename, pdf, "application/pdf")
+                email.send(fail_silently=False)
+
+                msg = messages.success(request, 'upi transaction file has been shared via email successfully..!')
+                return redirect(upistatement)
+        except Exception as e:
+            print(e)
+            messages.error(request, f'{e}')
+            return redirect(upistatement)  
+
+def chequeEmail(request):
+  if request.user:
+        try:
+            if request.method == 'POST':
+                emails_string = request.POST['email_ids']
+
+                # Split the string by commas and remove any leading or trailing whitespace
+                emails_list = [email.strip() for email in emails_string.split(',')]
+                email_message = request.POST['email_message']
+                print(emails_list)
+
+                sid = request.session.get('staff_id')
+                staff =  staff_details.objects.get(id=sid)
+                cmp = company.objects.get(id=staff.company.id) 
+               
+                pur_bill = PurchaseBill.objects.filter(pay_method__iexact ='cheque', company=cmp , advance__gt = 0)
+                pur_order = PurchaseOrder.objects.filter(pay_method__iexact ='cheque', company=cmp , advance__gt = 0)
+                pur_debit = purchasedebit.objects.filter(payment_type__iexact ='cheque', company=cmp , paid_amount__gt = 0)
+                
+                pay_outs = PaymentOut.objects.filter(company=cmp,pay_method__iexact ='cheque')
+                sal_inv = SalesInvoice.objects.filter(paymenttype__iexact ='cheque', company=cmp , paidoff__gt = 0)
+                pay_in = PaymentIn.objects.filter(payment_method__iexact ='cheque', company=cmp , payment_received__gt = 0)
+                sal_order = salesorder.objects.filter(payment_method__iexact ='cheque', comp=cmp , paid__gt = 0)
+                
+                exp = Expense.objects.filter(payment_type__iexact='cheque', staff_id__company=cmp,paid__gt = 0)
+                cre_note = CreditNote.objects.filter(pay_method__iexact ='cheque', company=cmp , advance__gt = 0)
+                loan = LoanAccounts.objects.filter(loan_received__iexact ='cheque', company=cmp ,loan_amount__gt = 0)
+                emi = TransactionTable.objects.filter(transaction_type__iexact = 'emi',loan_received__iexact ='cheque', company=cmp ,total_amount__gt = 0)
+
+                context = {'pur_bill':pur_bill , 'pur_order': pur_order, 'pur_debit':pur_debit,
+                  'pay_out': pay_outs ,'sal_inv': sal_inv , 'pay_in': pay_in , 'sal_order': sal_order , 'cre_note': cre_note, 'loan': loan,
+                  'emi': emi,'company':cmp, 'exp':exp}        
+                
+                template_path = 'company/chequeEmail.html'
+                template = get_template(template_path)
+
+                html  = template.render(context)
+                result = BytesIO()
+                pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+                pdf = result.getvalue()
+                filename = f'chequetransaction.pdf'
+                subject = f"chequetransaction"
+                email = EmailMessage(subject, f"Hi,\nPlease find the attached Cheque transaction - File- \n{email_message}\n\n--\nRegards,\n{cmp.company_name}\n{cmp.address}\n{cmp.state} - {cmp.country}\n{cmp.contact}", from_email=settings.EMAIL_HOST_USER, to=emails_list)
+                email.attach(filename, pdf, "application/pdf")
+                email.send(fail_silently=False)
+
+                msg = messages.success(request, 'cheque transaction file has been shared via email successfully..!')
+                return redirect(cheque_statement)
+        except Exception as e:
+            print(e)
+            messages.error(request, f'{e}')
+            return redirect(cheque_statement)
+#End
+#---------------- Low Stock summary Report - Ginto Shaji - Start-------------------->
+
+def Low_stock_report(request):
+  sid = request.session.get('staff_id')
+  staff =  staff_details.objects.get(id=sid)
+  cmp = company.objects.get(id=staff.company.id)
+  allmodules= modules_list.objects.get(company=cmp,status='New')
+  all_items = ItemModel.objects.filter(company=cmp)
+  
+  context = {'staff':staff,'allmodules':allmodules,'all_items':all_items}
+  return render(request,'company/Low_stock_report.html',context)
+
+
+def email_lowstock(request):
+    if request.method == 'POST':
+        emails_string = request.POST.get('email')
+        emails_list = [email.strip() for email in emails_string.split(',')]
+        email_message = request.POST.get('message')
+        
+        sid = request.session.get('staff_id')
+        staff = staff_details.objects.get(id=sid)
+        cid = staff.company.id
+        all_items = ItemModel.objects.filter(company=staff.company)
+        context = {'staff': staff, 'all_items': all_items}
+        
+        cmp = company.objects.get(id=cid)
+        template_path = 'company/Lowstock_summary_pdf.html'
+        template = get_template(template_path)
+        
+        html = template.render(context)
+        result = BytesIO()
+        pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+        pdf = result.getvalue()
+        filename = f'Low Stock Summary - {cmp.company_name}.pdf'
+        subject = f"Low Stock Summary - {cmp.company_name}"
+        email = EmailMessage(subject, f"Hi,\nPlease find the attached Low Stock Summary .\n{email_message}\n\n--\nRegards,\n{cmp.company_name}\n{cmp.address}\n{cmp.state} - {cmp.country}\n{cmp.contact}", from_email=settings.EMAIL_HOST_USER, to=emails_list)
+        email.attach(filename, pdf, "application/pdf")
+        email.send(fail_silently=False)
+        
+        # messages.success(request, 'Report has been shared via email successfully..!')
+        return redirect('Low_stock_report')  
+    else:
+        return redirect('Low_stock_report') 
+    
+#---------------- Low Stock summary Report - Ginto Shaji - end-------------------->
+# harikrishnan
+def stock_details(request):
+    sid = request.session.get('staff_id')
+    staff =  staff_details.objects.get(id=sid) 
+    cmp = company.objects.get(id=staff.company.id)
+    allmodules= modules_list.objects.get(company=cmp,status='New')
+    iitems = ItemModel.objects.filter(company=cmp)
+    p_array = []
+    for i in iitems:
+      item = ItemModel.objects.get(id=i.id)
+      p_total_qty = PurchaseBillItem.objects.filter(company=cmp,product=i).values('qty').aggregate(total_qty=Sum('qty'))['total_qty'] or 0
+      s_total_qty = SalesInvoiceItem.objects.filter(company=cmp,item=i).values('quantity').aggregate(total_qty=Sum('quantity'))['total_qty'] or 0
+      print(p_total_qty ,' and ', s_total_qty)
+      close_qty = int(item.item_opening_stock) + int(p_total_qty) - int(s_total_qty)
+      p_array.append((item.item_name,item.item_opening_stock,p_total_qty,item.item_purchase_price,s_total_qty,item.item_sale_price,close_qty))
+       
+    context={
+       'allmodules':allmodules,
+       'p_array':p_array,
+       'companyName':cmp.company_name
+       
+    }
+    return render(request,'company/stock_details.html',context)
+
+def stock_details_date_filter(request):
+    fromDate = request.GET.get('fromdate')
+    toDate = request.GET.get('todate')
+    start_date = datetime.strptime(fromDate, '%Y-%m-%d').date()
+    end_date = datetime.strptime(toDate, '%Y-%m-%d').date()
+    sid = request.session.get('staff_id')
+    staff =  staff_details.objects.get(id=sid) 
+    cmp = company.objects.get(id=staff.company.id)
+    allmodules= modules_list.objects.get(company=cmp,status='New')
+    iitems = ItemModel.objects.filter(company=cmp)
+    p_array = []
+    for i in iitems:
+      item = ItemModel.objects.get(id=i.id)
+      p_total_qty = PurchaseBillItem.objects.filter(company=cmp,product=i,purchasebill__billdate__gte=start_date,purchasebill__billdate__lte=end_date).values('qty').aggregate(total_qty=Sum('qty'))['total_qty'] or 0
+      s_total_qty = SalesInvoiceItem.objects.filter(company=cmp,item=i,salesinvoice__date__gte=start_date,salesinvoice__date__lte=end_date).values('quantity').aggregate(total_qty=Sum('quantity'))['total_qty'] or 0
+      print(p_total_qty ,' and ', s_total_qty)
+      close_qty = int(item.item_opening_stock) + int(p_total_qty) - int(s_total_qty)
+      p_array.append((item.item_name, item.item_opening_stock, p_total_qty, item.item_purchase_price, s_total_qty, item.item_sale_price, close_qty))
+    print(p_array,'===============')
+    context={
+       'stocklist':p_array, 
+    }
+    return JsonResponse(context)
+
+def sendEmail_stock_details(request):
+        sid = request.session.get('staff_id')
+        staff =  staff_details.objects.get(id=sid)
+        com = company.objects.get(id=staff.company.id)
+        try:
+            if request.method == 'POST':
+                emails_string = request.POST['email_ids']
+                # Split the string by commas and remove any leading or trailing whitespace
+                emails_list = [email.strip() for email in emails_string.split(',')]
+                email_message = request.POST['email_message']
+                # print(emails_list)
+                
+                start_date = request.POST.get('start_date') or None
+                end_date = request.POST.get('end_date') or None
+                Countt = request.POST.get('stockCount')
+                print(Countt,'oooooooollllllloooooooooooooooollllll \n \n \n')
+
+                iitems = ItemModel.objects.filter(company=com)
+                p_array = []
+
+                if start_date != None and end_date != None:
+                  for i in iitems:
+                    item = ItemModel.objects.get(id=i.id)
+                    p_total_qty = PurchaseBillItem.objects.filter(company=com,product=i,purchasebill__billdate__gte=start_date,purchasebill__billdate__lte=end_date).values('qty').aggregate(total_qty=Sum('qty'))['total_qty'] or 0
+                    s_total_qty = SalesInvoiceItem.objects.filter(company=com,item=i,salesinvoice__date__gte=start_date,salesinvoice__date__lte=end_date).values('quantity').aggregate(total_qty=Sum('quantity'))['total_qty'] or 0
+                    print(p_total_qty ,' and ', s_total_qty)
+                    close_qty = int(item.item_opening_stock) + int(p_total_qty) - int(s_total_qty)
+                    p_array.append((item.item_name,item.item_opening_stock,p_total_qty,item.item_purchase_price,s_total_qty,item.item_sale_price,close_qty))
+                    
+                else:
+                  for i in iitems:
+                    item = ItemModel.objects.get(id=i.id)
+                    p_total_qty = PurchaseBillItem.objects.filter(company=com,product=i).values('qty').aggregate(total_qty=Sum('qty'))['total_qty'] or 0
+                    s_total_qty = SalesInvoiceItem.objects.filter(company=com,item=i).values('quantity').aggregate(total_qty=Sum('quantity'))['total_qty'] or 0
+                    print(p_total_qty ,' and ', s_total_qty)
+                    close_qty = int(item.item_opening_stock) + int(p_total_qty) - int(s_total_qty)
+                    p_array.append((item.item_name,item.item_opening_stock,p_total_qty,item.item_purchase_price,s_total_qty,item.item_sale_price,close_qty)) 
+                    
+                context = { 'stocklist':p_array,'cmp':com,'companyName':com.company_name,
+                       'start_date':start_date,'end_date':end_date,'stockCount':Countt }
+                
+                template_path = 'company/stock_details_pdf.html'
+                template = get_template(template_path)
+                html  = template.render(context)
+                result = BytesIO()
+                # pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+                pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+                pdf = result.getvalue()
+                filename = f'Stock Details'
+                subject = f"Stock Details"
+                from django.core.mail import EmailMessage as EmailMsg
+                email = EmailMsg(subject, f"Hi,\nPlease find the attached Stock Details for   \n{email_message}\n\n--\nRegards,\n{com.company_name}\n{com.address}\n{com.state} - {com.country}\n{com.contact}", from_email=settings.EMAIL_HOST_USER, to=emails_list)
+                email.attach(filename, pdf, "application/pdf")
+                email.send(fail_silently=False)
+
+                messages.success(request, 'Stock Details has been shared via email successfully..!')
+                return redirect(stock_details)
+        except Exception as e:
+            print(e)
+            messages.error(request, f'{e}')
+            return redirect(stock_details)
+
+#end
+def sales_invoice_report(request):
+  id=request.session.get('staff_id')
+  staff=staff_details.objects.get(id=id)
+  company=SalesInvoice.objects.filter(company=staff.company)
+  credit=CreditNote.objects.filter(company=staff.company)
+  return render(request,'company/sales_report.html',{'staff':staff,'company':company,'credit':credit})
+
+def send_sales_report_via_mail(request):
+  if request.method == 'POST':
+    from_date_str=request.POST['fdate']
+    To_date_str=request.POST['tdate']
+    search=request.POST['search']
+    filters_by=request.POST['filter']
+    emails_string = request.POST['email']
+    emails= [email.strip() for email in emails_string.split(',')]
+    mess=request.POST['message']
+    if from_date_str and To_date_str:
+      id=request.session.get('staff_id')
+      staff=staff_details.objects.get(id=id)
+      sale_data=SalesInvoice.objects.filter(company=staff.company,billdate__range=[from_date_str,To_date_str])
+      paid = unpaid = total=0
+      for i in sale_data:
+        paid +=float(i.paidoff)
+        unpaid +=float(i.totalbalance)
+        total +=float(i.grandtotal)
+      content={
+      'bill':sale_data,
+      'staff':staff,
+      'paid':paid,
+      'unpaid':unpaid,
+      'total':total,
+      'sdate':from_date_str,
+      'edate':To_date_str
+      }
+      template_path = 'company/share_sales_report_mail.html'
+      template = get_template(template_path)
+
+      html  = template.render(content)
+      result = BytesIO()
+      pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+      pdf = result.getvalue()
+      filename = f'Sales Report.pdf'
+      email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+      email.attach(filename, pdf, "application/pdf")
+      email.send(fail_silently=False)
+      messages.info(request,'sales report shared via mail')
+      return redirect('sales_invoice_report')
+    
+    if search:
+      print(search)
+      if SalesInvoice.objects.filter(billdate__startswith=search):
+          id=request.session.get('staff_id')
+          staff=staff_details.objects.get(id=id)
+          if SalesInvoice.objects.filter(staff=id,billdate__startswith=search).exists:
+            sale_data=SalesInvoice.objects.filter(staff=id,billdate__startswith=search)
+            
+            paid = unpaid = total=0
+            for i in sale_data:
+              paid +=float(i.paidoff)
+              unpaid +=float(i.totalbalance)
+              total +=float(i.grandtotal)
+            content={
+            'bill':sale_data,
+            
+            'staff':staff,
+            'paid':paid,
+            'unpaid':unpaid,
+            'total':total
+            }
+            template_path = 'company/share_sales_report_mail.html'
+            template = get_template(template_path)
+
+            html  = template.render(content)
+            result = BytesIO()
+            pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+            pdf = result.getvalue()
+            filename = f'Sales Report.pdf'
+            email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+            email.attach(filename, pdf, "application/pdf")
+            email.send(fail_silently=False)
+            messages.info(request,'sales report shared via mail')
+            return redirect('sales_invoice_report')
+      
+      if party.objects.filter(party_name__startswith=search):
+        id=request.session.get('staff_id')
+        staff=staff_details.objects.get(id=id)
+        party_name=party.objects.get(party_name__startswith=search)
+        if SalesInvoice.objects.filter(staff=id,party=party_name.id).exists:
+          sale_data=SalesInvoice.objects.filter(staff=id,party=party_name.id)
+          
+          paid = unpaid = total=0
+          for i in sale_data:
+            paid +=float(i.paidoff)
+            unpaid +=float(i.totalbalance)
+            total +=float(i.grandtotal)
+          content={
+          'bill':sale_data,
+          
+          'staff':staff,
+          'paid':paid,
+          'unpaid':unpaid,
+          'total':total
+          }
+          template_path = 'company/share_sales_report_mail.html'
+          template = get_template(template_path)
+
+          html  = template.render(content)
+          result = BytesIO()
+          pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+          pdf = result.getvalue()
+          filename = f'Sales Report.pdf'
+          email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+          email.attach(filename, pdf, "application/pdf")
+          email.send(fail_silently=False)
+          messages.info(request,'sale report shared via mail')
+          return redirect('sales_invoice_report') 
+      if SalesInvoice.objects.filter(pay_method__istartswith=search):
+        print(search)
+        id=request.session.get('staff_id')
+        staff=staff_details.objects.get(id=id)
+        if SalesInvoice.objects.filter(staff=id,pay_method__istartswith=search).exists:
+         
+          sale_data=SalesInvoice.objects.filter(staff=id,pay_method__istartswith=search)
+          
+          paid = unpaid = total=0
+          for i in sale_data:
+            paid +=float(i.paidoff)
+            unpaid +=float(i.totalbalance)
+            total +=float(i.grandtotal)
+          content={
+          'bill':sale_data,
+          
+          'staff':staff,
+          'paid':paid,
+          'unpaid':unpaid,
+          'total':total
+          }
+          template_path = 'company/share_sales_report_mail.html'
+          template = get_template(template_path)
+
+          html  = template.render(content)
+          result = BytesIO()
+          pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+          pdf = result.getvalue()
+          filename = f'Sales Report.pdf'
+          email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+          email.attach(filename, pdf, "application/pdf")
+          email.send(fail_silently=False)
+          messages.info(request,'sales report shared via mail')
+          return redirect('sales_invoice_report')    
+        
+      if search.isdigit():
+        print(search)
+        if SalesInvoice.objects.filter(billno__startswith=search):
+          id=request.session.get('staff_id')
+          staff=staff_details.objects.get(id=id)
+          if SalesInvoice.objects.filter(staff=id,billno__startswith=search).exists:
+            sale_data=SalesInvoice.objects.filter(staff=id,billno__startswith=search)
+            paid = unpaid = total=0
+            for i in sale_data:
+              paid +=float(i.paidoff)
+              unpaid +=float(i.totalbalance)
+              total +=float(i.grandtotal)
+            content={
+            'bill':sale_data,
+            
+            'staff':staff,
+            'paid':paid,
+            'unpaid':unpaid,
+            'total':total
+            }
+            template_path = 'company/share_sales_report_mail.html'
+            template = get_template(template_path)
+
+            html  = template.render(content)
+            result = BytesIO()
+            pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+            pdf = result.getvalue()
+            filename = f'Sale Report.pdf'
+            email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+            email.attach(filename, pdf, "application/pdf")
+            email.send(fail_silently=False)
+            messages.info(request,'sale report shared via mail')
+            return redirect('sales_invoice_report')
+             
+        if SalesInvoice.objects.filter(grandtotal__startswith=search):
+          id=request.session.get('staff_id')
+          staff=staff_details.objects.get(id=id)
+          if SalesInvoice.objects.filter(staff=id,grandtotal__startswith=search).exists:
+            sale_data=SalesInvoice.objects.filter(staff=id,grandtotal__startswith=search)
+            paid = unpaid = total=0
+            for i in sale_data:
+              paid +=float(i.paidoff)
+              unpaid +=float(i.totalbalance)
+              total +=float(i.grandtotal)
+            content={
+            'bill':sale_data,
+            
+            'staff':staff,
+            'paid':paid,
+            'unpaid':unpaid,
+            'total':total
+            }
+            template_path = 'company/share_sale_report_mail.html'
+            template = get_template(template_path)
+
+            html  = template.render(content)
+            result = BytesIO()
+            pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+            pdf = result.getvalue()
+            filename = f'Sale Report.pdf'
+            email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+            email.attach(filename, pdf, "application/pdf")
+            email.send(fail_silently=False)
+            messages.info(request,'sale report shared via mail')
+            return redirect('sales_invoice_report')    
+            
+        if SalesInvoice.objects.filter(balance__startswith=search):
+          id=request.session.get('staff_id')
+          staff=staff_details.objects.get(id=id)
+          if SalesInvoice.objects.filter(staff=id,balance__startswith=search).exists:
+            sale_data=SalesInvoice.objects.filter(staff=id,balance__startswith=search)
+            
+            paid = unpaid = total=0
+            for i in sale_data:
+              paid +=float(i.paidoff)
+              unpaid +=float(i.totalbalance)
+              total +=float(i.grandtotal)
+            content={
+              'bill':sale_data,
+              
+              'staff':staff,
+              'paid':paid,
+              'unpaid':unpaid,
+              'total':total
+              }
+            template_path = 'company/share_sales_report_mail.html'
+            template = get_template(template_path)
+
+            html  = template.render(content)
+            result = BytesIO()
+            pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+            pdf = result.getvalue()
+            filename = f'Sale Report.pdf'
+            email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+            email.attach(filename, pdf, "application/pdf")
+            email.send(fail_silently=False)
+            messages.info(request,'sale report shared via mail')
+            return redirect('sales_invoice_report') 
+      if search == 'bi' or search =='bil' or search =='bill' or search =='b':
+        id=request.session.get('staff_id')
+        staff=staff_details.objects.get(id=id)
+        if SalesInvoice.objects.filter(staff=id).exists:
+          sale_data=SalesInvoice.objects.filter(staff=id)
+          paid = unpaid = total=0
+          for i in sale_data:
+            paid +=float(i.paidoff)
+            unpaid +=float(i.totalbalance)
+            total +=float(i.grandtotal)
+          content={
+            'bill':sale_data,
+            'staff':staff,
+            'paid':paid,
+            'unpaid':unpaid,
+            'total':total
+            }
+          template_path = 'company/share_sales_report_mail.html'
+          template = get_template(template_path)
+
+          html  = template.render(content)
+          result = BytesIO()
+          pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+          pdf = result.getvalue()
+          filename = f'Sale Report.pdf'
+          email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+          email.attach(filename, pdf, "application/pdf")
+          email.send(fail_silently=False)
+          messages.info(request,'sale report shared via mail')
+          return redirect('sales_invoice_report')   
+    if filters_by:
+      if SalesInvoice.objects.filter(billdate__startswith=filters_by) :
+          id=request.session.get('staff_id')
+          staff=staff_details.objects.get(id=id)
+          if SalesInvoice.objects.filter(staff=id,billdate__startswith=filters_by).exists :
+            sale_data=SalesInvoice.objects.filter(staff=id,billdate__startswith=filters_by)
+            
+            paid = unpaid = total=0
+            for i in sale_data:
+              paid +=float(i.paidoff)
+              unpaid +=float(i.totalbalance)
+              total +=float(i.grandtotal)
+            content={
+            'bill':sale_data,
+            
+            'staff':staff,
+            'paid':paid,
+            'unpaid':unpaid,
+            'total':total
+            }
+            template_path = 'company/share_sales_report_mail.html'
+            template = get_template(template_path)
+
+            html  = template.render(content)
+            result = BytesIO()
+            pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+            pdf = result.getvalue()
+            filename = f'Sale Report.pdf'
+            email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+            email.attach(filename, pdf, "application/pdf")
+            email.send(fail_silently=False)
+            messages.info(request,'sale report shared via mail')
+            return redirect('sales_report')
+      
+      if party.objects.filter(party_name__startswith=filters_by):
+        id=request.session.get('staff_id')
+        staff=staff_details.objects.get(id=id)
+        party_name=party.objects.get(party_name__startswith=filters_by)
+        if SalesInvoice.objects.filter(staff=id,party=party_name.id).exists:
+          
+          sale_data=SalesInvoice.objects.filter(staff=id,party=party_name.id)
+          
+          paid = unpaid = total=0
+          for i in sale_data:
+            paid +=float(i.paidoff)
+            unpaid +=float(i.totalbalance)
+            total +=float(i.grandtotal)
+          content={
+          'bill':sale_data,
+          
+          'staff':staff,
+          'paid':paid,
+          'unpaid':unpaid,
+          'total':total
+          }
+          template_path = 'company/share_sales_report_mail.html'
+          template = get_template(template_path)
+
+          html  = template.render(content)
+          result = BytesIO()
+          pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+          pdf = result.getvalue()
+          filename = f'Sale Report.pdf'
+          email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+          email.attach(filename, pdf, "application/pdf")
+          email.send(fail_silently=False)
+          messages.info(request,'sale report shared via mail')
+          return redirect('sales_invoice_report') 
+      if SalesInvoice.objects.filter(pay_method__istartswith=filters_by):
+        print(filters_by)
+        id=request.session.get('staff_id')
+        staff=staff_details.objects.get(id=id)
+        if SalesInvoice.objects.filter(staff=id,pay_method__istartswith=filters_by).exists:
+         
+          sale_data=SalesInvoice.objects.filter(staff=id,pay_method__istartswith=filters_by)
+          
+          paid = unpaid = total=0
+          for i in sale_data:
+            paid +=float(i.paidoff)
+            unpaid +=float(i.totalbalance)
+            total +=float(i.grandtotal)
+          content={
+          'bill':sale_data,
+          
+          'staff':staff,
+          'paid':paid,
+          'unpaid':unpaid,
+          'total':total
+          }
+          template_path = 'company/share_sales_report_mail.html'
+          template = get_template(template_path)
+
+          html  = template.render(content)
+          result = BytesIO()
+          pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+          pdf = result.getvalue()
+          filename = f'Sale Report.pdf'
+          email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+          email.attach(filename, pdf, "application/pdf")
+          email.send(fail_silently=False)
+          messages.info(request,'sale report shared via mail')
+          return redirect('sales_invoice_report')    
+        
+      if search.isdigit():
+       
+        if SalesInvoice.objects.filter(billno__startswith=filters_by):
+          id=request.session.get('staff_id')
+          staff=staff_details.objects.get(id=id)
+          if SalesInvoice.objects.filter(staff=id,billno__startswith=filters_by).exists:
+            sale_data=SalesInvoice.objects.filter(staff=id,billno__startswith=filters_by)
+            
+            paid = unpaid = total=0
+            for i in sale_data:
+              paid +=float(i.paidoff)
+              unpaid +=float(i.totalbalance)
+              total +=float(i.grandtotal)
+            content={
+            'bill':sale_data,
+            
+            'staff':staff,
+            'paid':paid,
+            'unpaid':unpaid,
+            'total':total
+            }
+            template_path = 'company/share_sales_report_mail.html'
+            template = get_template(template_path)
+
+            html  = template.render(content)
+            result = BytesIO()
+            pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+            pdf = result.getvalue()
+            filename = f'Sale Report.pdf'
+            email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+            email.attach(filename, pdf, "application/pdf")
+            email.send(fail_silently=False)
+            messages.info(request,'sale report shared via mail')
+            return redirect('sales_invoice_report')
+          #grandtotal --------------------------    
+        if SalesInvoice.objects.filter(grandtotal__startswith=filters_by):
+          id=request.session.get('staff_id')
+          staff=staff_details.objects.get(id=id)
+          if SalesInvoice.objects.filter(staff=id,grandtotal__startswith=filters_by).exists:
+            sale_data=SalesInvoice.objects.filter(staff=id,grandtotal__startswith=filters_by)
+            
+            paid = unpaid = total=0
+            for i in sale_data:
+              paid +=float(i.paidoff)
+              unpaid +=float(i.totalbalance)
+              total +=float(i.grandtotal)
+            content={
+            'bill':sale_data,
+            
+            'staff':staff,
+            'paid':paid,
+            'unpaid':unpaid,
+            'total':total
+            }
+            template_path = 'company/share_sales_report_mail.html'
+            template = get_template(template_path)
+
+            html  = template.render(content)
+            result = BytesIO()
+            pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+            pdf = result.getvalue()
+            filename = f'Sale Report.pdf'
+            email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+            email.attach(filename, pdf, "application/pdf")
+            email.send(fail_silently=False)
+            messages.info(request,'sale report shared via mail')
+            return redirect('sales_invoice_report')    
+          #balance--------------------------  
+        if SalesInvoice.objects.filter(balance__startswith=filters_by):
+          id=request.session.get('staff_id')
+          staff=staff_details.objects.get(id=id)
+          if SalesInvoice.objects.filter(staff=id,balance__startswith=filters_by).exists:
+            sale_data=SalesInvoice.objects.filter(staff=id,balance__startswith=filters_by)
+            
+            paid = unpaid = total=0
+            for i in sale_data:
+              paid +=float(i.paidoff)
+              unpaid +=float(i.totalbalance)
+              total +=float(i.grandtotal)
+            content={
+              'bill':sale_data,
+              
+              'staff':staff,
+              'paid':paid,
+              'unpaid':unpaid,
+              'total':total
+              }
+            template_path = 'company/share_sales_report_mail.html'
+            template = get_template(template_path)
+
+            html  = template.render(content)
+            result = BytesIO()
+            pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+            pdf = result.getvalue()
+            filename = f'Sale Report.pdf'
+            email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+            email.attach(filename, pdf, "application/pdf")
+            email.send(fail_silently=False)
+            messages.info(request,'sale report shared via mail')
+            return redirect('sales_invoice_report') 
+      if filters_by == 'bi' or filters_by =='bil' or filters_by =='bill' or filters_by =='b':
+        id=request.session.get('staff_id')
+        staff=staff_details.objects.get(id=id)
+        if SalesInvoice.objects.filter(staff=id).exists:
+          sale_data=SalesInvoice.objects.filter(staff=id)
+          paid = unpaid = total=0
+          for i in sale_data:
+            paid +=float(i.paidoff)
+            unpaid +=float(i.totalbalance)
+            total +=float(i.grandtotal)
+          content={
+            'bill':sale_data,
+            'staff':staff,
+            'paid':paid,
+            'unpaid':unpaid,
+            'total':total
+            }
+          template_path = 'company/share_sales_report_mail.html'
+          template = get_template(template_path)
+
+          html  = template.render(content)
+          result = BytesIO()
+          pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+          pdf = result.getvalue()
+          filename = f'Sale Report.pdf'
+          email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+          email.attach(filename, pdf, "application/pdf")
+          email.send(fail_silently=False)
+          messages.info(request,'sale report shared via mail')
+          return redirect('sales_invoice_report')  
+    if search == '' or filters_by == '' or from_date_str == '' or To_date_str == '' :
+      id=request.session.get('staff_id')
+      staff=staff_details.objects.get(id=id)
+      sale_data=SalesInvoice.objects.filter(staff=id)
+      
+      paid = unpaid = total=0
+      for i in sale_data:
+        paid +=float(i.paidoff)
+        unpaid +=float(i.totalbalance)
+        total +=float(i.grandtotal)
+      content={
+        'bill':sale_data,
+        
+        'staff':staff,
+        'paid':paid,
+        'unpaid':unpaid,
+        'total':total
+      }
+      template_path = 'company/share_sales_report_mail.html'
+      template = get_template(template_path)
+      html  = template.render(content)
+      result = BytesIO()
+      pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+      pdf = result.getvalue()
+      filename = f'Sale Report.pdf'
+      email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+      email.attach(filename, pdf, "application/pdf")
+      email.send(fail_silently=False)
+      messages.info(request,'sale report shared via mail')
+      return redirect('sales_report') 
+  return redirect('sales_invoice_report') 
+
+def graph_sales(request):
+  if 'staff_id' in request.session:
+        if request.session.has_key('staff_id'):
+            staff_id = request.session['staff_id']
+        else:
+            return redirect('/')
+  staff = staff_details.objects.get(id=staff_id)
+  # company_instance = staff.company
+  Company = company.objects.get(id=staff.company.id)
+  user = Company.user
+  allmodules= modules_list.objects.get(company=staff.company.id,status='New')
+    
+  salescredit = CreditNote.objects.filter(company=Company)
+
+  years = list(range(2022, 2031))
+  return render(request, 'company/graph_salescredit.html',{'staff':staff,'allmodules':allmodules,'years':years})
+  
+  
+# all transactions - harikrishnan --------------------
+def all_transactions(request):
+    sid = request.session.get('staff_id')
+    staff =  staff_details.objects.get(id=sid) 
+    cmp = company.objects.get(id=staff.company.id)
+    allmodules= modules_list.objects.get(company=cmp,status='New')
+
+    bill = PurchaseBill.objects.filter(company=cmp)
+    purchaseorder = PurchaseOrder.objects.filter(company=cmp)
+    debitnote  = purchasedebit.objects.filter(company=cmp)
+    invoice = SalesInvoice.objects.filter(company=cmp)
+    estimate = Estimate.objects.filter(company=cmp)
+    saleorder = salesorder.objects.filter(comp=cmp)
+    deliverychallan = DeliveryChallan.objects.filter(company=cmp)
+    creditnote = CreditNote.objects.filter(company=cmp)
+    expense = Expense.objects.filter(staff_id__company=cmp)
+    paymentin = PaymentIn.objects.filter(company=cmp)
+    paymentout = PaymentOutDetails.objects.filter(paymentout__company=cmp)
+    
+      
+       
+    context={
+      'allmodules':allmodules,
+      'companyName':cmp.company_name,
+      'bill':bill,
+      'invoice':invoice,
+      'saleorder':saleorder,
+      'deliverychallan':deliverychallan,
+      'creditnote':creditnote,
+      'debitnote' :debitnote ,
+      'purchaseorder':purchaseorder,
+      'estimate':estimate,
+      'expense':expense,
+      'paymentin':paymentin,
+      'paymentout':paymentout,
+       
+    }
+    return render(request,'company/all_transactions.html',context)
+
+def all_transactions_date_filter(request):
+    fromDate = request.GET.get('fromdate')
+    toDate = request.GET.get('todate')
+    start_date = datetime.strptime(fromDate, '%Y-%m-%d').date()
+    end_date = datetime.strptime(toDate, '%Y-%m-%d').date()
+    sid = request.session.get('staff_id')
+    staff =  staff_details.objects.get(id=sid) 
+    cmp = company.objects.get(id=staff.company.id)
+    
+    pray = []
+
+    bill = PurchaseBill.objects.filter(company=cmp,billdate__gte = start_date,billdate__lte = end_date)
+    for i in bill:
+       pray.append((i.billdate,i.party.party_name,'Bill',i.grandtotal,i.advance,i.balance))
+
+    purchaseorder = PurchaseOrder.objects.filter(company=cmp,orderdate__gte = start_date,orderdate__lte = end_date)
+    for i in purchaseorder:
+       pray.append((i.orderdate,i.party.party_name,'Purchase Order',i.grandtotal,i.advance,i.balance))
+
+    debitnote  = purchasedebit.objects.filter(company=cmp,debitdate__gte = start_date,debitdate__lte = end_date)
+    for i in debitnote:
+       pray.append((i.debitdate,i.party.party_name,'Debit Note',i.grandtotal,i.paid_amount,i.balance_amount))
+
+    invoice = SalesInvoice.objects.filter(company=cmp,date__gte = start_date,date__lte = end_date)
+    for i in invoice:
+       pray.append((i.date,i.party_name,'Invoice',i.grandtotal,i.paidoff,i.totalbalance))
+
+    estimate = Estimate.objects.filter(company=cmp,date__gte = start_date,date__lte = end_date)
+    for i in estimate:
+       pray.append((i.date,i.party_name,'Estimate',i.total_amount,0.00,i.balance))
+
+    saleorder = salesorder.objects.filter(comp=cmp,orderdate__gte = start_date,orderdate__lte = end_date)
+    for i in saleorder:
+       pray.append((i.orderdate,i.partyname,'Sales Order',i.grandtotal,i.paid,i.balance))
+
+    deliverychallan = DeliveryChallan.objects.filter(company=cmp,date__gte = start_date,date__lte = end_date)
+    for i in deliverychallan:
+       pray.append((i.date,i.party_name,'Delivery Challan',i.total_amount,0.00,i.balance))
+
+    creditnote = CreditNote.objects.filter(company=cmp,date__gte = start_date,date__lte = end_date)
+    for i in creditnote:
+       pray.append((i.date,i.party.party_name,'Credit Note',i.grandtotal,i.advance,i.balance))
+
+    expense = Expense.objects.filter(staff_id__company=cmp,expense_date__gte = start_date,expense_date__lte = end_date)
+    for i in expense:
+       pray.append((i.expense_date,i.party_id.party_name,'Expense',i.total,i.paid,i.balance))
+
+    paymentin = PaymentIn.objects.filter(company=cmp,date__gte = start_date,date__lte = end_date)
+    for i in paymentin:
+       pray.append((i.date,i.party_name,'Payment In',i.total_amount,i.payment_received,i.balance))
+
+    paymentoutt = PaymentOutDetails.objects.filter(paymentout__company=cmp,paymentout__billdate__gte = start_date,paymentout__billdate__lte = end_date)
+    for i in paymentoutt:
+       pray.append((i.paymentout.billdate,i.paymentout.party.party_name,'Payment Out',i.paid,i.paid,0.00))
+
+    context={
+       'stocklist':pray,
+       }
+    return JsonResponse(context)
+
+def sendEmail_all_transactions(request):
+        sid = request.session.get('staff_id')
+        staff =  staff_details.objects.get(id=sid)
+        com = company.objects.get(id=staff.company.id)
+        try:
+            if request.method == 'POST':
+                emails_string = request.POST['email_ids']
+                # Split the string by commas and remove any leading or trailing whitespace
+                emails_list = [email.strip() for email in emails_string.split(',')]
+                email_message = request.POST['email_message']
+                # print(emails_list)
+                
+                start_date = request.POST.get('start_date') or None
+                end_date = request.POST.get('end_date') or None
+                moneyIn = request.POST.get('moneyIn2')
+                moneyOut = request.POST.get('moneyOut2')
+                typeValue = request.POST.get('typet')
+
+                pray = []
+                if start_date != None and end_date != None:
+                    bill = PurchaseBill.objects.filter(company=com,billdate__gte = start_date,billdate__lte = end_date)
+                    purchaseorder = PurchaseOrder.objects.filter(company=com,orderdate__gte = start_date,orderdate__lte = end_date)
+                    debitnote  = purchasedebit.objects.filter(company=com,debitdate__gte = start_date,debitdate__lte = end_date)
+                    invoice = SalesInvoice.objects.filter(company=com,date__gte = start_date,date__lte = end_date)
+                    estimate = Estimate.objects.filter(company=com,date__gte = start_date,date__lte = end_date)
+                    saleorder = salesorder.objects.filter(comp=com,orderdate__gte = start_date,orderdate__lte = end_date)
+                    deliverychallan = DeliveryChallan.objects.filter(company=com,date__gte = start_date,date__lte = end_date)
+                    creditnote = CreditNote.objects.filter(company=com,date__gte = start_date,date__lte = end_date)
+                    expense = Expense.objects.filter(staff_id__company=com,expense_date__gte = start_date,expense_date__lte = end_date)
+                    paymentin = PaymentIn.objects.filter(company=com,date__gte = start_date,date__lte = end_date)
+                    paymentoutt = PaymentOutDetails.objects.filter(paymentout__company=com,paymentout__billdate__gte = start_date,paymentout__billdate__lte = end_date)
+                else:
+                    bill = PurchaseBill.objects.filter(company=com)
+                    purchaseorder = PurchaseOrder.objects.filter(company=com)
+                    debitnote  = purchasedebit.objects.filter(company=com)
+                    invoice = SalesInvoice.objects.filter(company=com)
+                    estimate = Estimate.objects.filter(company=com)
+                    saleorder = salesorder.objects.filter(comp=com)
+                    deliverychallan = DeliveryChallan.objects.filter(company=com)
+                    creditnote = CreditNote.objects.filter(company=com)
+                    expense = Expense.objects.filter(staff_id__company=com)
+                    paymentin = PaymentIn.objects.filter(company=com)
+                    paymentoutt = PaymentOutDetails.objects.filter(paymentout__company=com)
+                
+                
+                if typeValue == 'All':
+                  for i in bill:                            
+                      pray.append((i.billdate,i.party.party_name,'Bill',i.grandtotal,i.advance,i.balance))
+                  for i in purchaseorder:
+                      pray.append((i.orderdate,i.party.party_name,'Purchase Order',i.grandtotal,i.advance,i.balance))
+                  for i in debitnote:
+                      pray.append((i.debitdate,i.party.party_name,'Debit Note',i.grandtotal,i.paid_amount,i.balance_amount))
+                  for i in invoice:
+                      pray.append((i.date,i.party_name,'Invoice',i.grandtotal,i.paidoff,i.totalbalance))
+                  for i in estimate:
+                      pray.append((i.date,i.party_name,'Estimate',i.total_amount,0.00,i.balance))
+                  for i in saleorder:
+                      pray.append((i.orderdate,i.partyname,'Sales Order',i.grandtotal,i.paid,i.balance))
+                  for i in deliverychallan:
+                      pray.append((i.date,i.party_name,'Delivery Challan',i.total_amount,0.00,i.balance))
+                  for i in creditnote:
+                      pray.append((i.date,i.party.party_name,'Credit Note',i.grandtotal,i.advance,i.balance))
+                  for i in expense:
+                      pray.append((i.expense_date,i.party_id.party_name,'Expense',i.total,i.paid,i.balance))
+                  for i in paymentin:
+                      pray.append((i.date,i.party_name,'Payment In',i.total_amount,i.payment_received,i.balance))
+                  for i in paymentoutt:
+                      pray.append((i.paymentout.billdate,i.paymentout.party.party_name,'Payment Out',i.paid,i.paid,0.00))
+
+                elif typeValue == 'Bill':
+                  for i in bill:                            
+                      pray.append((i.billdate,i.party.party_name,'Bill',i.grandtotal,i.advance,i.balance))
+
+                elif typeValue == 'Purchase Order':
+                  for i in purchaseorder:
+                      pray.append((i.orderdate,i.party.party_name,'Purchase Order',i.grandtotal,i.advance,i.balance))
+
+                elif typeValue == 'Debit Note':
+                  for i in debitnote:
+                      pray.append((i.debitdate,i.party.party_name,'Debit Note',i.grandtotal,i.paid_amount,i.balance_amount))
+
+                elif typeValue == 'Invoice':
+                  for i in invoice:
+                      pray.append((i.date,i.party_name,'Invoice',i.grandtotal,i.paidoff,i.totalbalance))
+
+                elif typeValue == 'Estimate':
+                  for i in estimate:
+                      pray.append((i.date,i.party_name,'Estimate',i.total_amount,0.00,i.balance))
+
+                elif typeValue == 'Sales Order':
+                  for i in saleorder:
+                      pray.append((i.orderdate,i.partyname,'Sales Order',i.grandtotal,i.paid,i.balance))
+
+                elif typeValue == 'Delivery Challan':
+                  for i in deliverychallan:
+                      pray.append((i.date,i.party_name,'Delivery Challan',i.total_amount,0.00,i.balance))
+
+                elif typeValue == 'Credit Note':
+                  for i in creditnote:
+                      pray.append((i.date,i.party.party_name,'Credit Note',i.grandtotal,i.advance,i.balance))
+
+                elif typeValue == 'Expense':
+                  for i in expense:
+                      pray.append((i.expense_date,i.party_id.party_name,'Expense',i.total,i.paid,i.balance))
+                  
+                elif typeValue == 'Payment In':
+                  for i in paymentin:
+                      pray.append((i.date,i.party_name,'Payment In',i.total_amount,i.payment_received,i.balance))
+
+                elif typeValue == 'Payment Out':
+                  for i in paymentoutt:
+                      pray.append((i.paymentout.billdate,i.paymentout.party.party_name,'Payment Out',i.paid,i.paid,0.00))
+                  
+                
+                
+                context = { 'stocklist':pray,'cmp':com,'companyName':com.company_name,
+                          'start_date':start_date,'end_date':end_date,'moneyIn':moneyIn,'moneyOut':moneyOut}
+                
+                template_path = 'company/all_transactions_pdf.html'
+                template = get_template(template_path)
+                html  = template.render(context)
+                result = BytesIO()
+                # pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+                pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+                pdf = result.getvalue()
+                filename = f'All Transaction Details'
+                subject = f"All Transaction Details"
+                from django.core.mail import EmailMessage as EmailMsg
+                email = EmailMsg(subject, f"Hi,\nPlease find the attached All Transaction Details for   \n{email_message}\n\n--\nRegards,\n{com.company_name}\n{com.address}\n{com.state} - {com.country}\n{com.contact}", from_email=settings.EMAIL_HOST_USER, to=emails_list)
+                email.attach(filename, pdf, "application/pdf")
+                email.send(fail_silently=False)
+
+                messages.success(request, 'All Transaction Details has been shared via email successfully..!')
+                return redirect(all_transactions)
+        except Exception as e:
+            print(e)
+            messages.error(request, f'{e}')
+            return redirect(all_transactions)
+            
+#End
+
+def loan_account_report(request):
+  # if request.method == 'POST':
+  if 'staff_id' in request.session:
+    staff_id = request.session['staff_id']
+  else:
+    return redirect('/')
+  staff = staff_details.objects.get(id=staff_id)
+  company_instance = staff.company 
+  party_name = request.POST.get('partyname')
+  allmodules= modules_list.objects.get(company=company_instance,status='New')
+
+  if LoanAccounts.objects.filter(company=staff.company).exists():
+    Transactions=TransactionTable.objects.filter(company=staff.company)
+  else:
+    Transactions=''
+
+  context = {
+    'allmodules':allmodules,'staff':staff,'Transactions':Transactions
+  }
+
+  return render(request,'company/loan_account_report.html',context)
+  
+  
+def loan_account_report_via_mail(request):
+  if 'staff_id' in request.session:
+    staff_id = request.session['staff_id']
+  else:
+    return redirect('/')
+  staff = staff_details.objects.get(id=staff_id)
+  company_instance = staff.company 
+  party_name = request.POST.get('partyname')
+  allmodules= modules_list.objects.get(company=company_instance,status='New')
+
+  # loan_account =  LoanAccounts.objects.filter(company=staff.company).first()
+  # print(loan_account)
+  # first_transaction = TransactionTable.objects.filter(company=staff.company).first()
+  # company=TransactionTable.objects.filter(company=staff.company).exclude(id=first_transaction.id)
+
+  if request.method == 'POST':
+    from_date_str=request.POST['fdate']
+    To_date_str=request.POST['tdate']
+    search=request.POST['search']
+    filters_by=request.POST['filter']
+    emails_string = request.POST['email']
+    emails= [email.strip() for email in emails_string.split(',')]
+    mess=request.POST['message']
+
+    id=request.session.get('staff_id')
+    staff=staff_details.objects.get(id=id)
+
+    if from_date_str and To_date_str:
+      loan_account =  LoanAccounts.objects.filter(company=staff.company,date__range=[from_date_str,To_date_str]).first()
+      first_transaction = TransactionTable.objects.filter(company=staff.company).first()
+      data=TransactionTable.objects.filter(company=staff.company,date__range=[from_date_str,To_date_str]).exclude(id=first_transaction.id)
+    else:
+      loan_account =  LoanAccounts.objects.filter(company=staff.company).first()
+      first_transaction = TransactionTable.objects.filter(company=staff.company).first()
+      data=TransactionTable.objects.filter(company=staff.company).exclude(id=first_transaction.id)
+      
+    emi = loan = balance=0
+    if loan_account:
+      loan = float(loan_account.loan_amount)
+    else:
+      loan =0
+    balance = 0
+
+    if data:
+      for i in data:
+        if i.transaction_type == "EMI":
+          emi +=float(i.payment)
+        elif i.transaction_type == "Loan Account":
+          loan += float(i.payment)
+        elif i.transaction_type == "Additional Loan":
+          loan += float(i.payment)
+    
+    if int(loan) == 0:
+      if loan_account:
+        loan = loan_account.loan_amount
+      else:
+        loan = 0
+    
+
+    balance = float(loan)-float(emi)
+
+    content={
+    'data':data,
+    'staff':staff,
+    'emi':emi,
+    'loan':loan,
+    'balance':balance,
+    'sdate':from_date_str,
+    'edate':To_date_str,
+    'allmodules':allmodules,'staff':staff,'loan_account':loan_account,'first_transaction':first_transaction,
+    }
+    template_path = 'company/loan_account_report_via_mail.html'
+    template = get_template(template_path)
+
+    html  = template.render(content)
+    result = BytesIO()
+    pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+    pdf = result.getvalue()
+    filename = f'Loan Account Report.pdf'
+    email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+    email.attach(filename, pdf, "application/pdf")
+    email.send(fail_silently=False)
+    messages.info(request,'Loan report shared via mail')
+  return redirect('loan_account_report')
+  
+#---------------- Party Report By Item - Ginto Shaji - Start-------------------->
+
+def Party_Report_By_Item(request):
+  sid = request.session.get('staff_id')
+  staff =  staff_details.objects.get(id=sid) 
+  cmp = company.objects.get(id=staff.company.id)
+  allmodules= modules_list.objects.get(company=cmp,status='New')
+    
+  all_items = ItemModel.objects.filter(company=cmp)
+  sale_orders = salesorder.objects.filter(comp=cmp)
+  purchase_orders = PurchaseOrder.objects.filter(company=cmp)
+  parties = party.objects.filter(company=cmp)
+  item=ItemModel.objects.filter(company=cmp)
+  sale_items = sales_item.objects.filter(sale_order__in=sale_orders,product__in=item)
+  purchase_items = PurchaseOrderItem.objects.filter(purchaseorder__in=purchase_orders,product__in=item)
+ 
+  context = {
+    'staff': staff,
+    'cmp':cmp,
+    'all_items': all_items,
+    'item':item,
+    'allmodules': allmodules,
+    'sale_orders': sale_orders,
+    'purchase_orders': purchase_orders,
+    'sale_items': sale_items,
+    'purchase_items': purchase_items,
+    'parties': parties
+   }
+
+  return render(request, 'company/Party_Report_By_Item.html', context)
+
+
+def email_Party_Report_Item(request):
+    if request.method == 'POST':
+        # Get email addresses and message from POST data
+        emails_string = request.POST.get('email')
+        emails_list = [email.strip() for email in emails_string.split(',')]
+        email_message = request.POST.get('message')
+        
+         
+        start_date = request.POST.get('start_date') or None
+        end_date = request.POST.get('end_date') or None
+        moneyIn = request.POST.get('moneyIn2')
+        moneyOut = request.POST.get('moneyOut2')
+        selqty = request.POST.get('selqty2')
+        purqty = request.POST.get('purqty2')
+        typeValue = request.POST.get('typet')
+        
+        
+        # Retrieve staff details and company details based on session data
+        sid = request.session.get('staff_id')
+        try:
+            staff = staff_details.objects.get(id=sid)
+            cmp = staff.company  # Assign the company to 'cmp'
+        except staff_details.DoesNotExist:
+            messages.error(request, 'Staff details not found.')
+            return redirect('Party_Report_By_Item')
+        except company.DoesNotExist:
+            messages.error(request, 'Company details not found.')
+            return redirect('Party_Report_By_Item')       
+        
+        # Retrieve all items related to the company
+        all_items = ItemModel.objects.filter(company=cmp)
+        
+        sale_orders = salesorder.objects.filter(comp=cmp)
+        purchase_orders = PurchaseOrder.objects.filter(company=cmp)
+        parties = party.objects.filter(company=cmp)
+        item=ItemModel.objects.filter(company=cmp)
+        sale_items = sales_item.objects.filter(sale_order__in=sale_orders,product__in=item)
+        purchase_items = PurchaseOrderItem.objects.filter(purchaseorder__in=purchase_orders,product__in=item)
+ 
+        context = {
+            'staff': staff,
+            'cmp':cmp,
+            'all_items': all_items,
+            'item':item,
+            # 'allmodules': allmodules,
+            'sale_orders': sale_orders,
+            'purchase_orders': purchase_orders,
+            'sale_items': sale_items,
+            'purchase_items': purchase_items,
+            'parties': parties,
+            'start_date':start_date,
+            'end_date':end_date,
+            'moneyIn':moneyIn,
+            'moneyOut':moneyOut,
+            'selqty':selqty,
+            'purqty':purqty
+            
+          }
+                 
+        template_path = 'company/Party_Report_Item_pdf.html'
+        template = get_template(template_path)
+        html = template.render(context)
+        
+        result = BytesIO()
+        pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+        if not pdf.err:
+            pdf_data = result.getvalue()
+            
+            # Construct and send email with PDF attachment
+            filename = f'Party Report By Item - {cmp.company_name}.pdf'
+            subject = f"Party Report By Item - {cmp.company_name}"
+            email_content = (
+                f"Hi,\nPlease find the attached Party Report By Item .\n"
+                f"{email_message}\n\n--\nRegards,\n{cmp.company_name}\n{cmp.address}\n{cmp.state} - {cmp.country}\n{cmp.contact}"
+            )
+            email = EmailMessage(
+                subject,
+                email_content,
+                from_email=settings.EMAIL_HOST_USER,
+                to=emails_list
+            )
+            email.attach(filename, pdf_data, "application/pdf")
+            try:
+                email.send(fail_silently=False)
+                # messages.success(request, 'Report has been shared via email successfully.')
+            except Exception as e:
+                messages.error(request, f'Failed to send email: {str(e)}')
+        else:
+            messages.error(request, 'Failed to generate PDF.')
+
+        return redirect('Party_Report_By_Item')  
+    else:
+        return redirect('Party_Report_By_Item')
+
+#---------------- Party Report By Item - Ginto Shaji - end--------------------> 
+
+def party_statement(request):
+    sid = request.session.get('staff_id')
+    staff =  staff_details.objects.get(id=sid) 
+    cmp = company.objects.get(id=staff.company.id)
+    allmodules= modules_list.objects.get(company=cmp,status='New')
+    firstParty = party.objects.filter(company=cmp).first()
+
+    bill = PurchaseBill.objects.filter(company=cmp)
+    purchaseorder = PurchaseOrder.objects.filter(company=cmp)
+    debitnote  = purchasedebit.objects.filter(company=cmp)
+    invoice = SalesInvoice.objects.filter(company=cmp)
+    estimate = Estimate.objects.filter(company=cmp)
+    saleorder = salesorder.objects.filter(comp=cmp)
+    deliverychallan = DeliveryChallan.objects.filter(company=cmp)
+    creditnote = CreditNote.objects.filter(company=cmp)
+    expense = Expense.objects.filter(staff_id__company=cmp)
+    paymentin = PaymentIn.objects.filter(company=cmp)
+    paymentout = PaymentOutDetails.objects.filter(paymentout__company=cmp)
+    partyy = party.objects.filter(company=cmp)
+    
+      
+       
+    context={
+      'allmodules':allmodules,
+      'companyName':cmp.company_name,
+      'bill':bill,
+      'invoice':invoice,
+      'saleorder':saleorder,
+      'deliverychallan':deliverychallan,
+      'creditnote':creditnote,
+      'debitnote' :debitnote ,
+      'purchaseorder':purchaseorder,
+      'estimate':estimate,
+      'expense':expense,
+      'paymentin':paymentin,
+      'paymentout':paymentout,
+      'party':partyy,
+      'firstParty':firstParty.party_name,
+       
+    }
+    return render(request,'company/party_statement.html',context)
+
+def party_statement_date_filter(request):
+    fromDate = request.GET.get('fromdate')
+    toDate = request.GET.get('todate')
+    start_date = datetime.strptime(fromDate, '%Y-%m-%d').date()
+    end_date = datetime.strptime(toDate, '%Y-%m-%d').date()
+    sid = request.session.get('staff_id')
+    staff =  staff_details.objects.get(id=sid) 
+    cmp = company.objects.get(id=staff.company.id)
+    
+    pray = []
+
+    bill = PurchaseBill.objects.filter(company=cmp,billdate__gte = start_date,billdate__lte = end_date)
+    for i in bill:
+       pray.append((i.billdate,i.party.party_name,'Bill',i.billno,i.pay_method,i.grandtotal,i.balance))
+
+    purchaseorder = PurchaseOrder.objects.filter(company=cmp,orderdate__gte = start_date,orderdate__lte = end_date)
+    for i in purchaseorder:
+       pray.append((i.orderdate,i.party.party_name,'Purchase Order','',i.pay_method,i.grandtotal,i.balance))
+
+    debitnote  = purchasedebit.objects.filter(company=cmp,debitdate__gte = start_date,debitdate__lte = end_date)
+    for i in debitnote:
+       pray.append((i.debitdate,i.party.party_name,'Debit Note',i.reference_number,i.payment_type,i.grandtotal,i.balance_amount))
+
+    invoice = SalesInvoice.objects.filter(company=cmp,date__gte = start_date,date__lte = end_date)
+    for i in invoice:
+       pray.append((i.date,i.party_name,'Invoice',i.invoice_no,i.paymenttype,i.grandtotal,i.totalbalance))
+
+    estimate = Estimate.objects.filter(company=cmp,date__gte = start_date,date__lte = end_date)
+    for i in estimate:
+       pray.append((i.date,i.party_name,'Estimate',i.ref_no,'',i.total_amount,i.balance))
+
+    saleorder = salesorder.objects.filter(comp=cmp,orderdate__gte = start_date,orderdate__lte = end_date)
+    for i in saleorder:
+       pray.append((i.orderdate,i.partyname,'Sales Order',i.orderno,i.payment_method,i.grandtotal,i.balance))
+
+    deliverychallan = DeliveryChallan.objects.filter(company=cmp,date__gte = start_date,date__lte = end_date)
+    for i in deliverychallan:
+       pray.append((i.date,i.party_name,'Delivery Challan',i.challan_no,'',i.total_amount,i.balance))
+
+    creditnote = CreditNote.objects.filter(company=cmp,date__gte = start_date,date__lte = end_date)
+    for i in creditnote:
+       pray.append((i.date,i.party.party_name,'Credit Note',i.retrn_no,i.pay_method,i.grandtotal,i.balance))
+
+    expense = Expense.objects.filter(staff_id__company=cmp,expense_date__gte = start_date,expense_date__lte = end_date)
+    for i in expense:
+       pray.append((i.expense_date,i.party_id.party_name,'Expense',i.EXP_NO,i.payment_type,i.total,i.balance))
+
+    paymentin = PaymentIn.objects.filter(company=cmp,date__gte = start_date,date__lte = end_date)
+    for i in paymentin:
+       pray.append((i.date,i.party_name,'Payment In',i.rec_no,i.payment_type,i.total_amount,i.balance))
+
+    paymentoutt = PaymentOutDetails.objects.filter(paymentout__company=cmp,paymentout__billdate__gte = start_date,paymentout__billdate__lte = end_date)
+    for i in paymentoutt:
+       pray.append((i.paymentout.billdate,i.paymentout.party.party_name,'Payment Out',i.paymentout.ref_no,i.paymentout.pay_method,i.paid,0.00))
+
+    context={
+       'stocklist':pray,
+       }
+    return JsonResponse(context)
+
+def sendEmail_party_statement(request):
+        sid = request.session.get('staff_id')
+        staff =  staff_details.objects.get(id=sid)
+        com = company.objects.get(id=staff.company.id)
+        try:
+            if request.method == 'POST':
+                emails_string = request.POST['email_ids']
+                # Split the string by commas and remove any leading or trailing whitespace
+                emails_list = [email.strip() for email in emails_string.split(',')]
+                email_message = request.POST['email_message']
+                # print(emails_list)
+                
+                start_date = request.POST.get('start_date') or None
+                end_date = request.POST.get('end_date') or None
+                moneyIn = request.POST.get('moneyIn2')
+                moneyOut = request.POST.get('moneyOut2')
+                PartyValue = request.POST.get('typet')
+                totalSale = request.POST.get('totalSale2')
+                totalPurchase = request.POST.get('totalPurchase2')
+                totalExpense = request.POST.get('totalExpense2')
+                totalReceivable = request.POST.get('totalReceivable2')
+
+                firstParty = party.objects.get(company=com,party_name=PartyValue)
+
+                pray = []
+                if start_date != None and end_date != None:
+                    bill = PurchaseBill.objects.filter(company=com,party=firstParty,billdate__gte = start_date,billdate__lte = end_date)
+                    purchaseorder = PurchaseOrder.objects.filter(company=com,party=firstParty,orderdate__gte = start_date,orderdate__lte = end_date)
+                    debitnote  = purchasedebit.objects.filter(company=com,party=firstParty,debitdate__gte = start_date,debitdate__lte = end_date)
+                    invoice = SalesInvoice.objects.filter(company=com,party=firstParty,date__gte = start_date,date__lte = end_date)
+                    estimate = Estimate.objects.filter(company=com,party_name=firstParty.party_name,date__gte = start_date,date__lte = end_date)
+                    saleorder = salesorder.objects.filter(comp=com,partyname=firstParty.party_name,orderdate__gte = start_date,orderdate__lte = end_date)
+                    deliverychallan = DeliveryChallan.objects.filter(company=com,party_name=firstParty.party_name,date__gte = start_date,date__lte = end_date)
+                    creditnote = CreditNote.objects.filter(company=com,party=firstParty,date__gte = start_date,date__lte = end_date)
+                    expense = Expense.objects.filter(staff_id__company=com,party_id=firstParty,expense_date__gte = start_date,expense_date__lte = end_date)
+                    paymentin = PaymentIn.objects.filter(company=com,party=firstParty,date__gte = start_date,date__lte = end_date)
+                    paymentoutt = PaymentOutDetails.objects.filter(paymentout__company=com,paymentout__party=firstParty,paymentout__billdate__gte = start_date,paymentout__billdate__lte = end_date)
+                else:
+                    bill = PurchaseBill.objects.filter(company=com,party=firstParty)
+                    purchaseorder = PurchaseOrder.objects.filter(company=com,party=firstParty)
+                    debitnote  = purchasedebit.objects.filter(company=com,party=firstParty)
+                    invoice = SalesInvoice.objects.filter(company=com,party=firstParty)
+                    estimate = Estimate.objects.filter(company=com,party_name=firstParty.party_name)
+                    saleorder = salesorder.objects.filter(comp=com,partyname=firstParty.party_name)
+                    deliverychallan = DeliveryChallan.objects.filter(company=com,party_name=firstParty.party_name)
+                    creditnote = CreditNote.objects.filter(company=com,party=firstParty)
+                    expense = Expense.objects.filter(staff_id__company=com,party_id=firstParty)
+                    paymentin = PaymentIn.objects.filter(company=com,party=firstParty)
+                    paymentoutt = PaymentOutDetails.objects.filter(paymentout__company=com,paymentout__party=firstParty)
+                
+                pray = []
+                
+                for i in bill:
+                      pray.append((i.billdate,i.party.party_name,'Bill',i.billno,i.pay_method,i.grandtotal,i.balance))
+                for i in purchaseorder:
+                      pray.append((i.orderdate,i.party.party_name,'Purchase Order','-',i.pay_method,i.grandtotal,i.balance))
+                for i in debitnote:
+                      pray.append((i.debitdate,i.party.party_name,'Debit Note',i.reference_number,i.payment_type,i.grandtotal,i.balance_amount))
+                for i in invoice:
+                      pray.append((i.date,i.party_name,'Invoice',i.invoice_no,i.paymenttype,i.grandtotal,i.totalbalance))
+                for i in estimate:
+                      pray.append((i.date,i.party_name,'Estimate',i.ref_no,'-',i.total_amount,i.balance))
+                for i in saleorder:
+                      pray.append((i.orderdate,i.partyname,'Sales Order',i.orderno,i.payment_method,i.grandtotal,i.balance))
+                for i in deliverychallan:
+                      pray.append((i.date,i.party_name,'Delivery Challan',i.challan_no,'-',i.total_amount,i.balance))
+                for i in creditnote:
+                      pray.append((i.date,i.party.party_name,'Credit Note',i.retrn_no,i.pay_method,i.grandtotal,i.balance))
+                for i in expense:
+                      pray.append((i.expense_date,i.party_id.party_name,'Expense',i.EXP_NO,i.payment_type,i.total,i.balance))
+                for i in paymentin:
+                      pray.append((i.date,i.party_name,'Payment In',i.rec_no,i.payment_type,i.total_amount,i.balance))
+                for i in paymentoutt:
+                      pray.append((i.paymentout.billdate,i.paymentout.party.party_name,'Payment Out',i.paymentout.ref_no,i.paymentout.pay_method,i.paid,0.00))
+                
+                context = {'stocklist':pray,'cmp':com,'companyName':com.company_name,
+                          'start_date':start_date,'end_date':end_date,'moneyIn':moneyIn,
+                          'moneyOut':moneyOut,'partyName':PartyValue,'totalSale':totalSale,
+                          'totalPurchase':totalPurchase,'totalExpense':totalExpense,
+                          'totalReceivable':totalReceivable,}
+                
+                template_path = 'company/party_statement_pdf.html'
+                template = get_template(template_path)
+                html  = template.render(context)
+                result = BytesIO()
+                # pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+                pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+                pdf = result.getvalue()
+                filename = f'Party Statement Details'
+                subject = f"Party Statement Details"
+                from django.core.mail import EmailMessage as EmailMsg
+                email = EmailMsg(subject, f"Hi,\nPlease find the attached Party Statement Details for   \n{email_message}\n\n--\nRegards,\n{com.company_name}\n{com.address}\n{com.state} - {com.country}\n{com.contact}", from_email=settings.EMAIL_HOST_USER, to=emails_list)
+                email.attach(filename, pdf, "application/pdf")
+                email.send(fail_silently=False)
+
+                messages.success(request, 'Party Statement Details has been shared via email successfully..!')
+                return redirect(party_statement)
+        except Exception as e:
+            print(e)
+            messages.error(request, f'{e}')
+            return redirect(party_statement)
+            
+            
+def discount_report(request):
+  id=request.session.get('staff_id')
+  staff=staff_details.objects.get(id=id)
+  company=SalesInvoice.objects.filter(company=staff.company)
+  allmodules= modules_list.objects.get(company=staff.company.id,status='New')
+  credit=SalesInvoiceItem.objects.filter(company=staff.company)
+  creditt = PurchaseBillItem.objects.filter(company=staff.company)
+  return render(request,'company/discount_report.html',{'staff':staff,'company':company,'credit':credit,'creditt':creditt,'allmodules':allmodules})
+
+ 
+def send_discount_report_via_mail(request):
+  if request.method == 'POST':
+    from_date_str=request.POST['fdate']
+    To_date_str=request.POST['tdate']
+    search=request.POST['search']
+    filters_by=request.POST['filter']
+    emails_string = request.POST['email']
+    emails= [email.strip() for email in emails_string.split(',')]
+    mess=request.POST['message']
+
+    #filter using date-------------------
+    if from_date_str and To_date_str:
+      id=request.session.get('staff_id')
+      staff=staff_details.objects.get(id=id)
+      purchase_data=PurchaseBillItem.objects.filter(purchasebill__company=staff.company, purchasebill__billdate__range=[from_date_str, To_date_str])
+      sale_data= SalesInvoiceItem.objects.filter(salesinvoice__company=staff.company, salesinvoice__date__range=[from_date_str, To_date_str])
+      content={
+      'bill':sale_data,
+      'bill2':purchase_data,
+      'staff':staff,
+      'sdate':from_date_str,
+      'edate':To_date_str
+      }
+      template_path = 'company/share_discount_report_mail.html'
+      template = get_template(template_path)
+
+      html  = template.render(content)
+      result = BytesIO()
+      pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+      pdf = result.getvalue()
+      filename = f'discount Report.pdf'
+      email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+      email.attach(filename, pdf, "application/pdf")
+      email.send(fail_silently=False)
+      messages.info(request,'discount report shared via mail')
+      return redirect('discount_report')
+
+      #if search input -------------------------
+    if search:
+      if SalesInvoiceItem.objects.filter(salesinvoice__date__startswith=search):
+          id=request.session.get('staff_id')
+          staff=staff_details.objects.get(id=id)
+          if SalesInvoiceItem.objects.filter(salesinvoice__staff=id,salesinvoice__date__startswith=search).exists:
+            sale_data=SalesInvoiceItem.objects.filter(salesinvoice__staff=id,salesinvoice__date__startswith=search)
+            content={
+            'bill':sale_data,
+            'bill2':purchase_data,
+            'staff':staff,
+            }
+            template_path = 'company/share_discount_report_mail.html'
+            template = get_template(template_path)
+
+            html  = template.render(content)
+            result = BytesIO()
+            pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+            pdf = result.getvalue()
+            filename = f'discount Report.pdf'
+            email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+            email.attach(filename, pdf, "application/pdf")
+            email.send(fail_silently=False)
+            messages.info(request,'discount report shared via mail')
+            return redirect('discount_report')
+      if PurchaseBillItem.objects.filter(purchasebill__billdate__startswith=search):
+          id=request.session.get('staff_id')
+          staff=staff_details.objects.get(id=id)
+          if PurchaseBillItem.objects.filter(purchasebill__staff=id,purchasebill__billdate__startswith=search).exists:
+            purchase_data=PurchaseBillItem.objects.filter(purchasebill__staff=id,purchasebill__billdate__startswith=search)
+            content={
+            'bill':sale_data,
+            'bill2':purchase_data,
+            'staff':staff,
+            }
+            template_path = 'company/share_discount_report_mail.html'
+            template = get_template(template_path)
+
+            html  = template.render(content)
+            result = BytesIO()
+            pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+            pdf = result.getvalue()
+            filename = f'discount Report.pdf'
+            email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+            email.attach(filename, pdf, "application/pdf")
+            email.send(fail_silently=False)
+            messages.info(request,'discount report shared via mail')
+            return redirect('discount_report')
+        
+    #party name---------------------
+      if party.objects.filter(party_name__startswith=search).exists():
+        id = request.session.get('staff_id')
+        staff = staff_details.objects.get(id=id)
+        party_name = party.objects.get(party_name__startswith=search)
+
+        if PurchaseBill.objects.filter(staff=id, party=party_name.id).exists() or SalesInvoice.objects.filter(staff=id, party=party_name.id).exists():
+            print('aa')
+
+            purchase_data = PurchaseBillItem.objects.filter(purchasebill__staff=id, purchasebill__party=party_name.id) if PurchaseBill.objects.filter(staff=id, party=party_name.id).exists() else None
+            sale_data = SalesInvoiceItem.objects.filter(salesinvoice__staff=id, salesinvoice__party=party_name.id) if SalesInvoice.objects.filter(staff=id, party=party_name.id).exists() else None
+
+            content = {
+                'bill': sale_data,
+                'bill2': purchase_data,
+                'staff': staff,
+            }
+
+            template_path = 'company/share_discount_report_mail.html'
+            template = get_template(template_path)
+
+            html = template.render(content)
+            result = BytesIO()
+            pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+            pdf = result.getvalue()
+            filename = f'discount Report.pdf'
+            email = EmailMessage(mess, from_email=settings.EMAIL_HOST_USER, to=emails)
+            email.attach(filename, pdf, "application/pdf")
+            email.send(fail_silently=False)
+            messages.info(request, 'discount report shared via mail')
+            return redirect('discount_report')
+
+      if PurchaseBillItem.objects.filter(discount__startswith=search) or  SalesInvoiceItem.objects.filter(discount__startswith=search):
+          id=request.session.get('staff_id')
+          staff=staff_details.objects.get(id=id)
+          if PurchaseBillItem.objects.filter(purchasebill__staff=id,discount__startswith=search).exists or SalesInvoiceItem.objects.filter(salesinvoice__staff=id,discount__startswith=search).exists:
+            purchase_data=PurchaseBillItem.objects.filter(purchasebill__staff=id,discount__startswith=search)
+            sale_data=SalesInvoiceItem.objects.filter(salesinvoice__staff=id,discount__startswith=search)
+            
+            content={
+              'bill': sale_data,
+              'bill2': purchase_data,
+              'staff': staff,
+              }
+            template_path = 'company/share_discount_report_mail.html'
+            template = get_template(template_path)
+
+            html  = template.render(content)
+            result = BytesIO()
+            pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+            pdf = result.getvalue()
+            filename = f'discount Report.pdf'
+            email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+            email.attach(filename, pdf, "application/pdf")
+            email.send(fail_silently=False)
+            messages.info(request,'discount report shared via mail')
+            return redirect('discount_report') 
+
+
+          
+    
+    if search == '' or filters_by == '' or from_date_str == '' or To_date_str == '' :
+      id=request.session.get('staff_id')
+      staff=staff_details.objects.get(id=id)
+      sale_data= SalesInvoiceItem.objects.filter(company=staff.company)
+      purchase_data = PurchaseBillItem.objects.filter(company=staff.company)
+      
+      content={
+        'bill':sale_data,
+        'bill2':purchase_data,
+        'staff':staff,
+        
+      }
+      template_path = 'company/share_discount_report_mail.html'
+      template = get_template(template_path)
+      html  = template.render(content)
+      result = BytesIO()
+      pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+      pdf = result.getvalue()
+      filename = f'Discount Report.pdf'
+      email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+      email.attach(filename, pdf, "application/pdf")
+      email.send(fail_silently=False)
+      messages.info(request,'discount report shared via mail')
+      return redirect('discount_report') 
+  return redirect('discount_report') 
+  
+#Ashikhvu
+def bank_statement_report(request):
+  # if request.method == 'POST':
+  if 'staff_id' in request.session:
+    staff_id = request.session['staff_id']
+  else:
+    return redirect('/')
+  staff = staff_details.objects.get(id=staff_id)
+  company_instance = staff.company 
+  party_name = request.POST.get('partyname')
+  allmodules= modules_list.objects.get(company=company_instance,status='New')
+
+  banks= BankModel.objects.filter(company=company_instance.id)
+  Transactions = list()
+
+  for i in banks:
+    Transactions += list(
+          BankTransactionModel.objects.filter(company=company_instance.id,from_here=i.id).annotate(current_bank_balance=F("from_bank_current_amount"),
+            withdraw=Case(
+              When(type="Cash Withdraw",from_here=i.id,then=F('amount')),
+              When(type="Adjustment Reduce",from_here=i.id,then=F('amount')),
+              When(type="BANK TO BANK",from_here=i.id,then=F('amount')),
+              default=None,
+              ),
+              deposit=Case(
+                When(type="Adjustment Increase",from_here=i.id,then=F('amount')),
+                default=None,
+              )
+            )
+          )+list(
+          BankTransactionModel.objects.filter(company=company_instance.id,to_here=i.id).annotate(current_bank_balance=F("to_bank_current_amount"),
+              deposit=Case(
+                When(type="Cash Deposit",to_here=i.id,then=F('amount')),
+                When(type="BANK TO BANK",to_here=i.id,then=F('amount')),
+                default=None,
+              ))
+          )
+        
+  context = {
+    'allmodules':allmodules,'staff':staff,"Transactions":Transactions,
+  }
+
+  return render(request,'company/bank_statement_report.html',context)
+
+
+def bank_statement_report_send_mail(request):
+  if 'staff_id' in request.session:
+    staff_id = request.session['staff_id']
+  else:
+    return redirect('/')
+  staff = staff_details.objects.get(id=staff_id)
+  company_instance = staff.company 
+  party_name = request.POST.get('partyname')
+  allmodules= modules_list.objects.get(company=company_instance,status='New')
+
+  # loan_account =  LoanAccounts.objects.filter(company=staff.company).first()
+  # print(loan_account)
+  # first_transaction = TransactionTable.objects.filter(company=staff.company).first()
+  # company=TransactionTable.objects.filter(company=staff.company).exclude(id=first_transaction.id)
+
+  if request.method == 'POST':
+    from_date_str=request.POST['fdate']
+    To_date_str=request.POST['tdate']
+    search=request.POST['search']
+    filters_by=request.POST['filter']
+    emails_string = request.POST['email']
+    emails= [email.strip() for email in emails_string.split(',')]
+    mess=request.POST['message']
+
+    id=request.session.get('staff_id')
+    staff=staff_details.objects.get(id=id)
+
+    banks= BankModel.objects.filter(company=company_instance.id)
+    Transactions = list()
+
+    if from_date_str and To_date_str:
+      for i in banks:
+        Transactions += list(
+          BankTransactionModel.objects.filter(company=company_instance.id,from_here=i.id,date__range=[from_date_str,To_date_str]).annotate(current_bank_balance=F("from_bank_current_amount"),
+            withdraw=Case(
+              When(type="Cash Withdraw",from_here=i.id,then=F('amount')),
+              When(type="Adjustment Reduce",from_here=i.id,then=F('amount')),
+              When(type="BANK TO BANK",from_here=i.id,then=F('amount')),
+              default=None,
+              ),
+              deposit=Case(
+                When(type="Adjustment Increase",from_here=i.id,then=F('amount')),
+                default=None,
+              )
+            )
+          )+list(
+          BankTransactionModel.objects.filter(company=company_instance.id,to_here=i.id,date__range=[from_date_str,To_date_str]).annotate(current_bank_balance=F("to_bank_current_amount"),
+              deposit=Case(
+                When(type="Cash Deposit",to_here=i.id,then=F('amount')),
+                When(type="BANK TO BANK",to_here=i.id,then=F('amount')),
+                default=None,
+              ))
+          )
+    else:
+      for i in banks:
+        Transactions += list(
+          BankTransactionModel.objects.filter(company=company_instance.id,from_here=i.id).annotate(current_bank_balance=F("from_bank_current_amount"),
+            withdraw=Case(
+              When(type="Cash Withdraw",from_here=i.id,then=F('amount')),
+              When(type="Adjustment Reduce",from_here=i.id,then=F('amount')),
+              When(type="BANK TO BANK",from_here=i.id,then=F('amount')),
+              default=None,
+              ),
+              deposit=Case(
+                When(type="Adjustment Increase",from_here=i.id,then=F('amount')),
+                default=None,
+              )
+            )
+          )+list(
+          BankTransactionModel.objects.filter(company=company_instance.id,to_here=i.id).annotate(current_bank_balance=F("to_bank_current_amount"),
+              deposit=Case(
+                When(type="Cash Deposit",to_here=i.id,then=F('amount')),
+                When(type="BANK TO BANK",to_here=i.id,then=F('amount')),
+                default=None,
+              ))
+          )
+      
+   
+
+    content={
+    'staff':staff,
+    'sdate':from_date_str,
+    'edate':To_date_str,
+    'allmodules':allmodules,'staff':staff,"Transactions":Transactions,
+    }
+    template_path = 'company/bank_statement_report_send_mail.html'
+    template = get_template(template_path)
+
+    html  = template.render(content)
+    result = BytesIO()
+    pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+    pdf = result.getvalue()
+    filename = f'Bank Account Report.pdf'
+    email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+    email.attach(filename, pdf, "application/pdf")
+    email.send(fail_silently=False)
+    messages.info(request,'Bank report shared via mail')
+  return redirect('bank_statement_report')
+
+#End
+#Meenu Shaju --------Party Report--------------------------------
+def item_report_party(request):
+  sid = request.session.get('staff_id')
+  staff =  staff_details.objects.get(id=sid)
+  cmp = company.objects.get(id=staff.company.id)
+  allmodules= modules_list.objects.get(company=cmp,status='New')
+  pty = party.objects.filter( company=cmp )
+  purchase_bill_summary = PurchaseBillItem.objects.filter(company=cmp).values('product__item_name').annotate(
+                item_name=Max('product__item_name'),
+                total_count=Sum('qty'),
+                price=Sum('total') / Count('product__item_name'),
+                
+                )
+  for summary in purchase_bill_summary:
+                summary['total_amount'] = summary['total_count'] * summary['price']
+
+  invoice_item_names = [summary['item_name'] for summary in purchase_bill_summary]
+  invoice_items_summary = SalesInvoiceItem.objects.filter(company=cmp).values('item__item_name').annotate(
+                item_name=Max('item__item_name'),
+                total_count=Sum('quantity'),
+                price=Sum('rate') / Count('item__item_name'),
+                
+                )
+  for summary in invoice_items_summary:
+                summary['total_amount'] = summary['total_count'] * summary['price'] 
+  
+  
+
+  combined_data = {}
+
+# Iterate over sales data
+  for sale_summary in invoice_items_summary:
+      item_name = sale_summary['item_name']
+      if item_name in combined_data:
+          combined_data[item_name]['sales_quantity'] += sale_summary['total_count']
+          combined_data[item_name]['sales_amount'] += sale_summary['total_amount']
+      else:
+          combined_data[item_name] = {
+              'item_name': item_name,
+              'sales_quantity': sale_summary['total_count'],
+              'sales_amount': sale_summary['total_amount'],
+              'purchase_quantity': 0,
+              'purchase_amount': 0
+          }
+
+  # Iterate over purchase data
+  for purchase_summary in purchase_bill_summary:
+      item_name = purchase_summary['product__item_name']
+      if item_name in combined_data:
+          combined_data[item_name]['purchase_quantity'] += purchase_summary['total_count']
+          combined_data[item_name]['purchase_amount'] += purchase_summary['total_amount']
+      else:
+          combined_data[item_name] = {
+              'item_name': item_name,
+              'sales_quantity': 0,
+              'sales_amount': 0,
+              'purchase_quantity': purchase_summary['total_count'],
+              'purchase_amount': purchase_summary['total_amount']
+          }
+  total_sales_quantity = sum(summary['sales_quantity'] for summary in combined_data.values())
+  total_sales_amount = sum(summary['sales_amount'] for summary in combined_data.values())
+  print(total_sales_amount)
+  total_purchase_quantity = sum(summary['purchase_quantity'] for summary in combined_data.values())
+  total_purchase_amount = sum(summary['purchase_amount'] for summary in combined_data.values())
+  context = {'staff':staff,'allmodules':allmodules,'party':pty,'combined_data':combined_data,'total_sales_quantity': total_sales_quantity,
+        'total_sales_amount': total_sales_amount,
+        'total_purchase_quantity': total_purchase_quantity,
+        'total_purchase_amount': total_purchase_amount,}
+  return render(request,'company/item_report_party.html',context)
+
+
+def item_party_searchdate(request):
+    sid = request.session.get('staff_id')
+    staff =  staff_details.objects.get(id=sid)
+    cmp = company.objects.get(id=staff.company.id)
+    allmodules = modules_list.objects.get(company=cmp, status='New')
+    pty = party.objects.filter(company=cmp)
+
+    if request.method == 'GET':
+        fromDate = request.GET.get('fromdate')
+        toDate = request.GET.get('todate')
+        start_date = datetime.strptime(fromDate, '%Y-%m-%d').date()
+        end_date = datetime.strptime(toDate, '%Y-%m-%d').date()
+        purchase_bill_summary = PurchaseBillItem.objects.filter(company=cmp, purchasebill__billdate__gte=start_date,purchasebill__billdate__lte=end_date).values(
+            'product__item_name').annotate(
+            item_name=Max('product__item_name'),
+            total_count=Sum('qty'),
+            total_amount=Sum(F('qty') * F('total')),  # Calculate total amount
+            price=Sum('total') / Count('product__item_name'),
+        )
+        invoice_item_names = [summary['item_name'] for summary in purchase_bill_summary]
+
+        invoice_items_summary = SalesInvoiceItem.objects.filter(company=cmp, salesinvoice__date__gte=start_date, salesinvoice__date__lte=end_date).values(
+            'item__item_name').annotate(
+            item_name=Max('item__item_name'),
+            total_count=Sum('quantity'),
+            total_amount=Sum(F('quantity') * F('rate')),  # Calculate total amount
+            price=Sum('rate') / Count('item__item_name'),
+        )
+
+        
+
+        
+
+        combined_data = {}
+
+        for sale_summary in invoice_items_summary:
+            item_name = sale_summary['item_name']
+            if item_name in combined_data:
+                combined_data[item_name]['sales_quantity'] += sale_summary['total_count']
+                combined_data[item_name]['sales_amount'] += sale_summary['total_amount']
+            else:
+                combined_data[item_name] = {
+                    'item_name': item_name,
+                    'sales_quantity': sale_summary['total_count'],
+                    'sales_amount': sale_summary['total_amount'],
+                    'purchase_quantity': 0,
+                    'purchase_amount': 0
+                }
+
+        for purchase_summary in purchase_bill_summary:
+            item_name = purchase_summary['product__item_name']
+            if item_name in combined_data:
+                combined_data[item_name]['purchase_quantity'] += purchase_summary['total_count']
+                combined_data[item_name]['purchase_amount'] += purchase_summary['total_amount']
+            else:
+                combined_data[item_name] = {
+                    'item_name': item_name,
+                    'sales_quantity': 0,
+                    'sales_amount': 0,
+                    'purchase_quantity': purchase_summary['total_count'],
+                    'purchase_amount': purchase_summary['total_amount']
+                }
+
+        context = {'c_data': combined_data}
+        return JsonResponse(context)
+
+
+def item_party_filter(request):
+    sid = request.session.get('staff_id')
+    staff =  staff_details.objects.get(id=sid)
+    cmp = company.objects.get(id=staff.company.id)
+    allmodules = modules_list.objects.get(company=cmp, status='New')
+    
+    if request.method == 'GET':
+        pty = request.GET.get('selectparty')
+        
+        purchase_bill_summary = PurchaseBillItem.objects.filter(company=cmp, purchasebill__party = pty).values(
+           'product__item_name').annotate(
+            item_name=Max('product__item_name'),
+            total_count=Sum('qty'),
+            total_amount=Sum(F('qty') * F('total')),  # Calculate total amount
+            price=Sum('total') / Count('product__item_name'),
+        )
+
+        invoice_item_names = [summary['item_name'] for summary in purchase_bill_summary]
+        invoice_items_summary = SalesInvoiceItem.objects.filter(company=cmp, salesinvoice__party = pty).values(
+            'item__item_name').annotate(
+            item_name=Max('item__item_name'),
+            total_count=Sum('quantity'),
+            total_amount=Sum(F('quantity') * F('rate')), 
+            price=Sum('rate') / Count('item__item_name'),
+        )
+
+        
+
+        
+
+        combined_data = {}
+
+        for sale_summary in invoice_items_summary:
+            item_name = sale_summary['item_name']
+            if item_name in combined_data:
+                combined_data[item_name]['sales_quantity'] += sale_summary['total_count']
+                combined_data[item_name]['sales_amount'] += sale_summary['total_amount']
+            else:
+                combined_data[item_name] = {
+                    'item_name': item_name,
+                    'sales_quantity': sale_summary['total_count'],
+                    'sales_amount': sale_summary['total_amount'],
+                    'purchase_quantity': 0,
+                    'purchase_amount': 0
+                }
+
+        for purchase_summary in purchase_bill_summary:
+            item_name = purchase_summary['product__item_name']
+            if item_name in combined_data:
+                combined_data[item_name]['purchase_quantity'] += purchase_summary['total_count']
+                combined_data[item_name]['purchase_amount'] += purchase_summary['total_amount']
+            else:
+                combined_data[item_name] = {
+                    'item_name': item_name,
+                    'sales_quantity': 0,
+                    'sales_amount': 0,
+                    'purchase_quantity': purchase_summary['total_count'],
+                    'purchase_amount': purchase_summary['total_amount']
+                }
+
+        context = {'c_data': combined_data}
+        return JsonResponse(context)
+
+
+def itemReport_mail(request):
+    sid = request.session.get('staff_id')
+    staff =  staff_details.objects.get(id=sid)
+    cmp = company.objects.get(id=staff.company.id)
+    allmodules = modules_list.objects.get(company=cmp, status='New')
+    if request.method == 'POST':
+       emails_string = request.POST.get('email')
+
+                
+       emails_list = [email.strip() for email in emails_string.split(',')]
+       email_message = request.POST.get('email_message')
+       fromdate = request.POST.get('hiddenFromDate')
+       todate = request.POST.get('hiddenToDate')
+       if fromdate and todate:
+          start_date = datetime.strptime(fromdate, '%Y-%m-%d').date()
+          end_date = datetime.strptime(todate, '%Y-%m-%d').date()
+       
+       pty = request.POST.get('hiddenParty')
+       if pty == 'party1':
+            pty = None
+       if fromdate and todate:
+            purchase_bill_summary = PurchaseBillItem.objects.filter(company=cmp, purchasebill__billdate__gte=start_date,purchasebill__billdate__lte=end_date).values(
+            'product__item_name').annotate(
+            item_name=Max('product__item_name'),
+            total_count=Sum('qty'),
+            total_amount=Sum(F('qty') * F('total')),  # Calculate total amount
+            price=Sum('total') / Count('product__item_name'),
+        )
+            invoice_item_names = [summary['item_name'] for summary in purchase_bill_summary]
+
+            invoice_items_summary = SalesInvoiceItem.objects.filter(company=cmp, salesinvoice__date__gte=start_date, salesinvoice__date__lte=end_date).values(
+            'item__item_name').annotate(
+            item_name=Max('item__item_name'),
+            total_count=Sum('quantity'),
+            total_amount=Sum(F('quantity') * F('rate')),  # Calculate total amount
+            price=Sum('rate') / Count('item__item_name'),
+        )
+
+
+       if pty:
+            purchase_bill_summary = PurchaseBillItem.objects.filter(company=cmp,  purchasebill__party = pty).values(
+            'product__item_name').annotate(
+            item_name=Max('product__item_name'),
+            total_count=Sum('qty'),
+            total_amount=Sum(F('qty') * F('total')),  # Calculate total amount
+            price=Sum('total') / Count('product__item_name'),
+        )
+
+            invoice_item_names = [summary['item_name'] for summary in purchase_bill_summary]
+            invoice_items_summary = SalesInvoiceItem.objects.filter(company=cmp, salesinvoice__party = pty).values(
+            'item__item_name').annotate(
+            item_name=Max('item__item_name'),
+            total_count=Sum('quantity'),
+            total_amount=Sum(F('quantity') * F('rate')), 
+            price=Sum('rate') / Count('item__item_name'),
+        )
+       if not (fromdate and todate) and not pty:
+           purchase_bill_summary = PurchaseBillItem.objects.filter(company=cmp).values(
+                'product__item_name').annotate(
+                item_name=Max('product__item_name'),
+                total_count=Sum('qty'),
+                total_amount=Sum(F('qty') * F('total')),  
+                price=Sum('total') / Count('product__item_name'),
+            )
+           invoice_item_names = [summary['item_name'] for summary in purchase_bill_summary]
+
+           invoice_items_summary = SalesInvoiceItem.objects.filter(company=cmp).values(
+            'item__item_name').annotate(
+            item_name=Max('item__item_name'),
+            total_count=Sum('quantity'),
+            total_amount=Sum(F('quantity') * F('rate')), 
+            price=Sum('rate') / Count('item__item_name'),
+        )
+
+           
+
+          
+       combined_data = {}
+
+       for sale_summary in invoice_items_summary:
+            item_name = sale_summary['item_name']
+            if item_name in combined_data:
+                combined_data[item_name]['sales_quantity'] += sale_summary['total_count']
+                combined_data[item_name]['sales_amount'] += sale_summary['total_amount']
+            else:
+                combined_data[item_name] = {
+                    'item_name': item_name,
+                    'sales_quantity': sale_summary['total_count'],
+                    'sales_amount': sale_summary['total_amount'],
+                    'purchase_quantity': 0,
+                    'purchase_amount': 0
+                }
+
+       for purchase_summary in purchase_bill_summary:
+            item_name = purchase_summary['product__item_name']
+            if item_name in combined_data:
+                combined_data[item_name]['purchase_quantity'] += purchase_summary['total_count']
+                combined_data[item_name]['purchase_amount'] += purchase_summary['total_amount']
+            else:
+                combined_data[item_name] = {
+                    'item_name': item_name,
+                    'sales_quantity': 0,
+                    'sales_amount': 0,
+                    'purchase_quantity': purchase_summary['total_count'],
+                    'purchase_amount': purchase_summary['total_amount']
+                }
+
+       total_sales_quantity = sum(summary['sales_quantity'] for summary in combined_data.values())
+       total_sales_amount = sum(summary['sales_amount'] for summary in combined_data.values())
+       print(total_sales_amount)
+       total_purchase_quantity = sum(summary['purchase_quantity'] for summary in combined_data.values())
+       total_purchase_amount = sum(summary['purchase_amount'] for summary in combined_data.values())
+       context = {'staff':staff,'allmodules':allmodules,'party':pty,'combined_data':combined_data,'total_sales_quantity': total_sales_quantity,
+            'total_sales_amount': total_sales_amount,
+            'total_purchase_quantity': total_purchase_quantity,
+            'total_purchase_amount': total_purchase_amount,}
+
+       template_path = 'company/item_report_party_pdf.html'
+       template = get_template(template_path)
+
+       html  = template.render(context)
+       result = BytesIO()
+       pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+       pdf = result.getvalue()
+       filename = f'Item-Report-Party_.pdf'
+       subject = f"Item-Report-Party"
+       email = EmailMessage(subject, f"Hi,\nPlease find the attached Report - File- \n{email_message}\n\n--\nRegards,\n{cmp.company_name}\n{cmp.address}\n{cmp.state} - {cmp.country}\n{cmp.contact}", from_email=settings.EMAIL_HOST_USER, to=emails_list)
+       email.attach(filename, pdf, "application/pdf")
+       email.send(fail_silently=False)
+
+       msg = messages.success(request, 'Report file has been shared via email successfully..!')
+       return redirect(item_report_party)
+
+
+#end
+# sruthi ------------------------------------
+def stock_summary(request):
+    id = request.session.get('staff_id')
+    staff = staff_details.objects.get(id=id) 
+    cmp = company.objects.get(id=staff.company.id)
+    allmodules = modules_list.objects.get(company=cmp, status='New')
+    items = ItemModel.objects.filter(company=cmp)
+    item_list = []
+    for index, item in enumerate(items, start=1):  # Adding an explicit counter
+        item_data = {
+            "serial_number": index,  # Using the counter as the serial number
+            "item_name": item.item_name,
+            "sales_price": item.item_sale_price,
+            "purchase_price": item.item_purchase_price,
+            "stock_quantity": item.item_current_stock,
+            "stock_value": item.item_at_price,
+        }
+        item_list.append(item_data)
+    context = {
+       'allmodules': allmodules,
+       'item': item,
+       'company': cmp,
+       'stocklist': item_list,
+    }
+    return render(request, 'company/stock_summary.html', context)
+
+
+def stock_summary_date_filter(request):
+    fromDate = request.GET.get('fromdate')
+    toDate = request.GET.get('todate')
+    start_date = datetime.strptime(fromDate, '%Y-%m-%d').date()
+    end_date = datetime.strptime(toDate, '%Y-%m-%d').date()
+    sid = request.session.get('staff_id')
+    staff = staff_details.objects.get(id=sid)
+    cmp = company.objects.get(id=staff.company.id)
+    allmodules = modules_list.objects.get(company=cmp, status='New')
+    items = ItemModel.objects.filter(company=cmp, item_date__gte=start_date, item_date__lte=end_date)
+
+    item_list = []
+    for index, item in enumerate(items, start=1):  # Adding an explicit counter
+        item_data = {
+            "serial_number": index,  # Using the counter as the serial number
+            "item_name": item.item_name,
+            "sales_price": item.item_sale_price,
+            "purchase_price": item.item_purchase_price,
+            "stock_quantity": item.item_current_stock,
+            "stock_value": item.item_at_price,
+        }
+        item_list.append(item_data)
+
+    return JsonResponse({"stocklist": item_list})
+
+
+def sendEmail_stock_summary(request):
+        sid = request.session.get('staff_id')
+        staff =  staff_details.objects.get(id=sid)
+        com = company.objects.get(id=staff.company.id)
+        allmodules = modules_list.objects.get(company=com, status='New')
+
+        try:
+            if request.method == 'POST':
+                emails_string = request.POST['email_ids']
+                emails_list = [email.strip() for email in emails_string.split(',')]
+                email_message = request.POST['email_message']
+
+                start_date_str = request.POST.get('start_date')
+                end_date_str = request.POST.get('end_date')
+                Countt = request.POST.get('stockcount')
+                print(Countt, 'oooooooollllllloooooooooooooooollllll \n \n \n')
+
+                # Check if start_date and end_date are provided
+                if start_date_str and end_date_str:
+                    start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+                    end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+                    items = ItemModel.objects.filter(company=com, item_date__gte=start_date, item_date__lte=end_date)
+                else:
+                    items = ItemModel.objects.filter(company=com)
+
+                item_list = []
+                for index, item in enumerate(items, start=1):
+                    item_data = {
+                        "serial_number": index,
+                        "item_name": item.item_name,
+                        "sales_price": item.item_sale_price,
+                        "purchase_price": item.item_purchase_price,
+                        "stock_quantity": item.item_current_stock,
+                        "stock_value": item.item_at_price,
+                    }
+                    item_list.append(item_data)
+
+                context = {
+                    'stocklist': item_list,
+                    'start_date': start_date_str,
+                    'end_date': end_date_str,
+                    'stockCount': Countt,
+                    'company': com,
+                }
+
+                
+                template_path = 'company/sendEmail_stock_summary.html'
+                template = get_template(template_path)
+                html  = template.render(context)
+                result = BytesIO()
+                # pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+                pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+                pdf = result.getvalue()
+                filename = f'Stock Report'
+                subject = f"Stock Report"
+                from django.core.mail import EmailMessage as EmailMsg
+                email = EmailMsg(subject, f"Hi,\nPlease find the attached Stock Report for   \n{email_message}\n\n--\nRegards,\n{com.company_name}\n{com.address}\n{com.state} - {com.country}\n{com.contact}", from_email=settings.EMAIL_HOST_USER, to=emails_list)
+                email.attach(filename, pdf, "application/pdf")
+                email.send(fail_silently=False)
+
+                messages.success(request, 'Stock Report has been shared via email successfully..!')
+                return redirect(stock_summary)
+        except Exception as e:
+            print(e)
+            messages.error(request, f'{e}')
+            return redirect(stock_summary)
+
+#end---------------------------
+# ashikh
+def day_book_report_send_mail(request):
+  print("inside function")
+  if 'staff_id' in request.session:
+    staff_id = request.session['staff_id']
+  else:
+    return redirect('/')
+  staff = staff_details.objects.get(id=staff_id)
+  cmp = staff.company 
+  party_name = request.POST.get('partyname')
+  allmodules= modules_list.objects.get(company=cmp,status='New')
+
+  from_date=request.POST['fdate']
+  to_date=request.POST['tdate']
+
+  print(f"from: {from_date}\tto: {to_date}")
+
+  # from_date = datetime.strftime(from_date,"%Y-%m-%d")
+  # to_date = datetime.strftime(to_date,"%Y-%m-%d")
+
+  search=request.POST['search']
+  filters_by=request.POST['filter']
+  emails_string = request.POST['email']
+  emails= [email.strip() for email in emails_string.split(',')]
+  mess=request.POST['message']
+
+  if request.method=="POST" and from_date!='' and to_date!='':
+
+    print('date validation success')
+
+    daybook_history = list(
+      PurchaseBill.objects.filter(company=cmp,billdate__range=[from_date,to_date]).annotate(
+        object_type=Value("Purchase Bill",output_field=CharField()),
+        object_type_no=F('billno'),
+        object_party_name=F('party__party_name'),
+        object_total=F('grandtotal'),
+        object_money_in=Value("0.00",output_field=CharField()),
+        object_money_out=F('grandtotal'),
+      )
+    )+list(
+      SalesInvoice.objects.filter(company=cmp,date__range=[from_date,to_date]).annotate(
+        object_type=Value("Sales Invoice",output_field=CharField()),
+        object_type_no=F('invoice_no'),
+        object_party_name=F('party__party_name'),
+        object_total=F('grandtotal'),
+        object_money_in=Value("0.00",output_field=CharField()),
+        object_money_out=F('grandtotal'),
+      )
+    )+list(
+      purchasedebit.objects.filter(company=cmp,debitdate__range=[from_date,to_date]).annotate(
+        object_type=Value("Purchase Debit",output_field=CharField()),
+        object_type_no=F('billno'),
+        object_party_name=F('party__party_name'),
+        object_total=F('grandtotal'),
+        object_money_in=F('grandtotal'),
+        object_money_out=Value("0.00",output_field=CharField()),
+      )
+    )+list(
+      PurchaseOrder.objects.filter(company=cmp,orderdate__range=[from_date,to_date]).annotate(
+        object_type=Value("Purchase Order",output_field=CharField()),
+        object_type_no=F('orderno'),
+        object_party_name=F('party__party_name'),
+        object_total=F('grandtotal'),
+        object_money_in=Value("0.00",output_field=CharField()),
+        object_money_out=F('grandtotal'),
+      )
+    )+list(
+      salesorder.objects.filter(comp=cmp,orderdate__range=[from_date,to_date]).annotate(
+        object_type=Value("Sales Order",output_field=CharField()),
+        object_type_no=F('orderno'),
+        object_party_name=F('party__party_name'),
+        object_total=F('grandtotal'),
+        object_money_in=F('grandtotal'),
+        object_money_out=Value("0.00",output_field=CharField()),
+      )
+    )+list(
+      CreditNote.objects.filter(company=cmp,invoice_date__range=[from_date,to_date]).annotate(
+        object_type=Value("Credit Note",output_field=CharField()),
+        object_type_no=F('retrn_no'),
+        object_party_name=F('party__party_name'),
+        object_total=F('grandtotal'),
+        object_money_in=F('grandtotal'),
+        object_money_out=Value("0.00",output_field=CharField()),
+      )
+    )
+  else:
+    print('date validation failed')
+    date_today = date.today().strftime('%Y-%m-%d')
+
+    from_date = ''
+    to_date = ''
+  
+    daybook_history = list(
+      PurchaseBill.objects.filter(company=cmp,billdate=date_today).annotate(
+        object_type=Value("Purchase Bill",output_field=CharField()),
+        object_type_no=F('billno'),
+        object_party_name=F('party__party_name'),
+        object_total=F('grandtotal'),
+        object_money_in=Value("0.00",output_field=CharField()),
+        object_money_out=F('grandtotal'),
+      )
+    )+list(
+      SalesInvoice.objects.filter(company=cmp,date=date_today).annotate(
+        object_type=Value("Sales Invoice",output_field=CharField()),
+        object_type_no=F('invoice_no'),
+        object_party_name=F('party__party_name'),
+        object_total=F('grandtotal'),
+        object_money_in=Value("0.00",output_field=CharField()),
+        object_money_out=F('grandtotal'),
+      )
+    )+list(
+      purchasedebit.objects.filter(company=cmp,debitdate=date_today).annotate(
+        object_type=Value("Purchase Debit",output_field=CharField()),
+        object_type_no=F('billno'),
+        object_party_name=F('party__party_name'),
+        object_total=F('grandtotal'),
+        object_money_in=F('grandtotal'),
+        object_money_out=Value("0.00",output_field=CharField()),
+      )
+    )+list(
+      PurchaseOrder.objects.filter(company=cmp,orderdate=date_today).annotate(
+        object_type=Value("Purchase Order",output_field=CharField()),
+        object_type_no=F('orderno'),
+        object_party_name=F('party__party_name'),
+        object_total=F('grandtotal'),
+        object_money_in=Value("0.00",output_field=CharField()),
+        object_money_out=F('grandtotal'),
+      )
+    )+list(
+      salesorder.objects.filter(comp=cmp,orderdate=date_today).annotate(
+        object_type=Value("Sales Order",output_field=CharField()),
+        object_type_no=F('orderno'),
+        object_party_name=F('party__party_name'),
+        object_total=F('grandtotal'),
+        object_money_in=F('grandtotal'),
+        object_money_out=Value("0.00",output_field=CharField()),
+      )
+    )+list(
+      CreditNote.objects.filter(company=cmp,invoice_date=date_today).annotate(
+        object_type=Value("Credit Note",output_field=CharField()),
+        object_type_no=F('retrn_no'),
+        object_party_name=F('party__party_name'),
+        object_total=F('grandtotal'),
+        object_money_in=F('grandtotal'),
+        object_money_out=Value("0.00",output_field=CharField()),
+      )
+    )
+
+  content={
+  'staff':staff,
+  'sdate':from_date,
+  'edate':to_date,
+  'allmodules':allmodules,
+  'staff':staff,
+  "daybook_history":daybook_history,
+  }
+  template_path = 'company/day_book_report_send_mail.html'
+  template = get_template(template_path)
+
+  html  = template.render(content)
+  result = BytesIO()
+  pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+  pdf = result.getvalue()
+  filename = f'Day Book Report.pdf'
+  email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+  email.attach(filename, pdf, "application/pdf")
+  email.send(fail_silently=False)
+  messages.info(request,'day book report shared via mail')
+  print("mail send succesfully")
+  return redirect('day_book_report')
+
+
+def gstrnew1_pdf(request):
+  print("inside function")
+  if 'staff_id' in request.session:
+    staff_id = request.session['staff_id']
+  else:
+    return redirect('/')
+  staff = staff_details.objects.get(id=staff_id)
+  cmp = staff.company 
+  party_name = request.POST.get('partyname')
+  allmodules= modules_list.objects.get(company=cmp,status='New')
+
+  from_date=request.POST['fdate']
+  to_date=request.POST['tdate']
+
+  print(f"from: {from_date}\tto: {to_date}")
+
+  # from_date = datetime.strftime(from_date,"%Y-%m-%d")
+  # to_date = datetime.strftime(to_date,"%Y-%m-%d")
+
+  search=request.POST['search']
+  filters_by=request.POST['filter']
+  emails_string = request.POST['email']
+  emails= [email.strip() for email in emails_string.split(',')]
+  mess=request.POST['message']
+
+  if request.method=="POST" and from_date!='' and to_date!='':
+    inv = SalesInvoice.objects.filter(company=cmp.id,date__range=[from_date,to_date])
+    c_note = CreditNote.objects.filter(company=cmp.id,date__range=[from_date,to_date])  
+  else:
+    inv = SalesInvoice.objects.filter(company=cmp.id)
+    c_note = CreditNote.objects.filter(company=cmp.id)
+
+  content={
+  'staff':staff,
+  'sdate':from_date,
+  'edate':to_date,
+  'allmodules':allmodules,
+  'staff':staff,
+  "inv":inv,
+  "c_note":c_note,
+  }
+  template_path = 'company/gstrnew1_pdf.html'
+  template = get_template(template_path)
+
+  html  = template.render(content)
+  result = BytesIO()
+  pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+  pdf = result.getvalue()
+  filename = f'GSTR 1 Report.pdf'
+  email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+  email.attach(filename, pdf, "application/pdf")
+  email.send(fail_silently=False)
+  messages.info(request,'gstr1 report shared via mail')
+  print("mail send succesfully")
+  return redirect('gstrnew1')
+
+def gstrnew2_pdf(request):
+  print("inside function")
+  if 'staff_id' in request.session:
+    staff_id = request.session['staff_id']
+  else:
+    return redirect('/')
+  staff = staff_details.objects.get(id=staff_id)
+  cmp = staff.company 
+  party_name = request.POST.get('partyname')
+  allmodules= modules_list.objects.get(company=cmp,status='New')
+
+  from_date=request.POST['fdate']
+  to_date=request.POST['tdate']
+
+  print(f"from: {from_date}\tto: {to_date}")
+
+  # from_date = datetime.strftime(from_date,"%Y-%m-%d")
+  # to_date = datetime.strftime(to_date,"%Y-%m-%d")
+
+  search=request.POST['search']
+  filters_by=request.POST['filter']
+  emails_string = request.POST['email']
+  emails= [email.strip() for email in emails_string.split(',')]
+  mess=request.POST['message']
+
+  if request.method=="POST" and from_date!='' and to_date!='':
+    inv = SalesInvoice.objects.filter(company=cmp.id,date__range=[from_date,to_date])
+    c_note = CreditNote.objects.filter(company=cmp.id,date__range=[from_date,to_date])  
+  else:
+    inv = SalesInvoice.objects.filter(company=cmp.id)
+    c_note = CreditNote.objects.filter(company=cmp.id)
+
+  content={
+  'staff':staff,
+  'sdate':from_date,
+  'edate':to_date,
+  'allmodules':allmodules,
+  'staff':staff,
+  "inv":inv,
+  "c_note":c_note,
+  }
+  template_path = 'company/gstrnew2_pdf.html'
+  template = get_template(template_path)
+
+  html  = template.render(content)
+  result = BytesIO()
+  pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+  pdf = result.getvalue()
+  filename = f'GSTR 1 Report.pdf'
+  email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+  email.attach(filename, pdf, "application/pdf")
+  email.send(fail_silently=False)
+  messages.info(request,'gstr1 report shared via mail')
+  print("mail send succesfully")
+  return redirect('gstrnew1')
+  
+#End
+# Purchase Order Details
+def purchase_order_details_report(request):
+  id=request.session.get('staff_id')
+  staff =  staff_details.objects.get(id=id)
+  allmodules= modules_list.objects.get(company=staff.company,status='New')
+  purch = PurchaseOrder.objects.filter(company=staff.company)
+  purch_total = 0
+  for p in purch:
+    if p.grandtotal != '':
+      purch_total += float(p.grandtotal)
+  content = {'allmodules':allmodules,'staff':staff,'purch_total':purch_total,'purch':purch}
+  return render(request,'company/purchase_order_details_report.html',content)
+  
+# Q(status__icontains = search) |
+def purchase_order_details_mail(request):
+  if request.method == 'GET':
+    from_date = request.GET.get('from_date')
+    to_date = request.GET.get('to_date')
+    search = request.GET.get('search_input')
+    emails_string = request.GET.get('email_ids')
+    emails = [email.strip() for email in emails_string.split(',')]
+    mess = request.GET.get('email_message')
+    id = request.session.get('staff_id')
+    staff = staff_details.objects.get(id=id)
+    purch = PurchaseOrder.objects.filter(staff=id)
+    if from_date or to_date:
+      purch = purch.filter(orderdate__range=[from_date, to_date])
+    if search:
+      purch = purch.filter(Q(orderno__icontains = search) | Q(partyname__icontains = search) | Q(grandtotal__icontains = search))
+
+    total=0
+    for i in purch:
+      total += float(i.grandtotal)
+    content={'sale':purch, 'staff':staff, 'total':total, 'from_date':from_date, 'to_date':to_date}
+    template_path = 'company/purchase_order_mail.html'
+    template = get_template(template_path)
+    html  = template.render(content)
+    result = BytesIO()
+    pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+    pdf = result.getvalue()
+    filename = f'Purchase Order Report.pdf'
+    subject = f"Sharing Purchase Report"
+    email = EmailMessage(subject, f"Hi,\nPlease find the attached Purchase Report. \n{mess}\n\n--\nRegards,\n{staff.company.company_name}\n{staff.company.address}\n{staff.company.state} - {staff.company.pincode}", from_email=settings.EMAIL_HOST_USER, to=emails)
+    email.attach(filename, pdf, "application/pdf")
+    email.send(fail_silently=False)
+    message = 'Report has been shared via email successfully..!'
+    return JsonResponse({'message':message})
+  else:
+    message = 'Report cannot be send..!'
+    return JsonResponse({'message':message})
+
+#End
+def expense_report(request):
+    staff_id = request.session.get('staff_id')
+    staff = staff_details.objects.get(id=staff_id)
+    allmodules = modules_list.objects.get(company=staff.company, status='New')
+
+    from_date = request.GET.get('from_date')
+    to_date = request.GET.get('to_date')
+
+    expenses = Expense.objects.filter(staff_id__company=staff.company)
+    
+    if from_date and to_date:
+        expenses = expenses.filter(expense_date__range=[from_date, to_date])
+
+    # Calculate the totals
+    total_expenses = sum(expense.total for expense in expenses)
+    
+    # Passing the data to the template
+    context = {
+        'staff': staff,
+        'allmodules': allmodules,
+        'expenses': expenses,
+        'total_expenses': total_expenses,
+    }
+    
+    return render(request, 'company/expense_report.html', context)
+    
+def send_estimate_via_mail(request):
+    if request.method == 'GET':
+        from_date = request.GET.get('from_date')
+        to_date = request.GET.get('to_date')
+        search = request.GET.get('search_input')
+        emails_string = request.GET.get('email_ids')
+        emails = [email.strip() for email in emails_string.split(',')]
+        mess = request.GET.get('email_message')
+        id = request.session.get('staff_id')
+        staff = staff_details.objects.get(id=id)
+
+        expenses = Expense.objects.filter(staff_id__company=staff.company).order_by('id')
+        if from_date and to_date:
+            expenses = expenses.filter(expense_date__range=[from_date, to_date])
+        if search:
+            expenses = expenses.filter(
+                Q(expense_category_id__expense_category__icontains=search) |
+                Q(payment_type__icontains=search) |
+                Q(EXP_NO__icontains=search)
+            )
+        
+        total_expenses = sum(expense.total for expense in expenses)
+
+        content = {
+            'expenses': expenses,
+            'staff': staff,
+            'total_expenses': total_expenses,
+            'from_date': from_date,
+            'to_date': to_date,
+        }
+        
+        template_path = 'company/share_estimate_mail.html'
+        template = get_template(template_path)
+        html = template.render(content)
+        result = BytesIO()
+        pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+        pdf = result.getvalue()
+        filename = f'Estimate Report.pdf'
+        subject = f"Sharing Estimate Report"
+        email = EmailMessage(
+            subject,
+            f"Hi,\nPlease find the attached Estimate Report. \n{mess}\n\n--\nRegards,\n{staff.company.company_name}\n{staff.company.address}\n{staff.company.state} - {staff.company.pincode}",
+            from_email=settings.EMAIL_HOST_USER,
+            to=emails
+        )
+        email.attach(filename, pdf, "application/pdf")
+        email.send(fail_silently=False)
+        message = 'Report has been shared via email successfully..!'
+        return JsonResponse({'message': message})
+    else:
+        message = 'Report cannot be sent..!'
+        return JsonResponse({'message': message})
+
+# ------------ Purchase Order Item - Aravind P ------------->
+def purchase_order_item(request):
+    sid = request.session.get('staff_id')
+    staff = staff_details.objects.get(id=sid)
+    cid = staff.company.id
+    items = ItemModel.objects.filter(company_id=cid)
+    results = []
+
+    if items.exists():
+        for part in items:
+            purchase_items = PurchaseOrderItem.objects.filter(product_id=part.id)
+            if purchase_items.exists():
+                qty = purchase_items.aggregate(total_qty=Sum('qty'))['total_qty'] or 0
+                total = purchase_items.aggregate(total_price=Sum('total'))['total_price'] or 0
+                results.append({
+                    'item_name': part.item_name,
+                    'Quantity': qty,
+                    'Total': total,
+                })
+    else:
+        results = [{'item_name': '', 'Quantity': 0, 'Total': 0}]
+        
+    total_Q = sum(result['Quantity'] for result in results)
+    total_T = sum(result['Total'] for result in results)
+
+    return render(request, 'company/purchase_order_item.html', {'staff': staff, 'items': results, 'totalQ': total_Q, 'totalT': total_T})
+
+
+def sharepurchaseorderitemToEmail(request):
+    try:
+        if request.method == 'POST':
+            emails_string = request.POST['email']
+            emails_list = [email.strip() for email in emails_string.split(',')]
+            email_message = request.POST['message']
+            fromdate_str = request.POST['from_date']
+            todate_str = request.POST['to_date']
+            fvalue = request.POST['fvalue']
+            values_list = fvalue.split(', ')
+
+            sid = request.session.get('staff_id')
+            staff = staff_details.objects.get(id=sid)
+            cid = staff.company.id
+
+            if values_list != ['']:
+                items = ItemModel.objects.filter(item_name__in=values_list, company_id=cid)
+            else:
+                items = ItemModel.objects.filter(company_id=cid)
+
+            results = []
+
+            if fromdate_str and todate_str:
+                date_obj1 = datetime.strptime(fromdate_str, '%a %b %d %Y')
+                date_obj2 = datetime.strptime(todate_str, '%a %b %d %Y')
+                startD = date_obj1.strftime("%Y-%m-%d")
+                toD = date_obj2.strftime("%Y-%m-%d")
+
+                for part in items:
+                    purchase_items = PurchaseOrderItem.objects.filter(product_id=part.id, purchase_order__orderdate__range=(startD, toD))
+                    if purchase_items.exists():
+                        qty = purchase_items.aggregate(total_qty=Sum('qty'))['total_qty'] or 0
+                        total = purchase_items.aggregate(total_price=Sum('total'))['total_price'] or 0
+                        results.append({
+                            'item_name': part.item_name,
+                            'Quantity': qty,
+                            'Total': total,
+                        })
+
+                startDate = date_obj1.strftime("%m-%d-%Y")
+                endDate = date_obj2.strftime("%m-%d-%Y")
+                st = startDate + ' ' + 'To' + ' ' + endDate
+            else:
+                for part in items:
+                    purchase_items = PurchaseOrderItem.objects.filter(product_id=part.id)
+                    if purchase_items.exists():
+                        qty = purchase_items.aggregate(total_qty=Sum('qty'))['total_qty'] or 0
+                        total = purchase_items.aggregate(total_price=Sum('total'))['total_price'] or 0
+                        results.append({
+                            'item_name': part.item_name,
+                            'Quantity': qty,
+                            'Total': total,
+                        })
+
+            if not results:
+                results = [{'item_name': '', 'Quantity': 0, 'Total': 0}]
+
+            total_Q = int(sum(result['Quantity'] for result in results))
+            total_T = int(sum(result['Total'] for result in results))
+
+            context = {
+                'staff': staff,
+                'parties': results,
+                'totalQ': total_Q,
+                'totalT': total_T,
+            }
+
+            if fromdate_str and todate_str:
+                context['from'] = st
+
+            cmp = company.objects.get(id=cid)
+            template_path = 'company/purchase_order_item_pdf.html'
+            template = get_template(template_path)
+
+            html = template.render(context)
+            result = BytesIO()
+            pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+            pdf = result.getvalue()
+            filename = f'Purchase Order Item Report - .pdf'
+            subject = f"Purchase Order Item Report - "
+            email = EmailMessage(subject, f"Hi,\nPlease find the attached Purchase Order Item Report.\n{email_message}\n\n--\nRegards,\n{cmp.company_name}\n{cmp.address}\n{cmp.state} - {cmp.country}\n{cmp.contact}", from_email=settings.EMAIL_HOST_USER, to=emails_list)
+            email.attach(filename, pdf, "application/pdf")
+            email.send(fail_silently=False)
+
+            messages.success(request, 'Report has been shared via email successfully!')
+            return redirect('purchase_order_item')
+    except Exception as e:
+        print(e)
+        messages.error(request, f'{e}')
+        return redirect('purchase_order_item')
+
+# --------------END ------------------------>
+# trial_balance - harikrishnan
+def trial_balance(request):
+    sid = request.session.get('staff_id')
+    staff =  staff_details.objects.get(id=sid) 
+    cmp = company.objects.get(id=staff.company.id)
+    allmodules= modules_list.objects.get(company=cmp,status='New')
+    com = cmp
+    
+    todayDate = date.today()
+
+    cash = cash_in_hand.objects.filter(company=com).aggregate(total_cash=Sum('balance'))
+    total_cash = cash.get('total_cash') if cash.get('total_cash') is not None else 0.0
+
+    purchaseBill = PurchaseBill.objects.filter(company=com).aggregate(purchaseBillSum=Sum('grandtotal'),billPayable=Sum('balance'))
+    purchaseBillSum = purchaseBill.get('purchaseBillSum') if purchaseBill.get('purchaseBillSum') is not None else 0.0
+    billPayable = purchaseBill.get('billPayable') if purchaseBill.get('billPayable') is not None else 0.0
+    
+    
+    salesInvoice = SalesInvoice.objects.filter(company=com).aggregate(total_saleinvoice=Sum('grandtotal'),billReceivable=Sum('totalbalance'))
+    totalSaleInvoice = salesInvoice.get('total_saleinvoice') if salesInvoice.get('total_saleinvoice') is not None else 0.0
+    billReceivable = salesInvoice.get('billReceivable') if salesInvoice.get('billReceivable') is not None else 0.0
+
+    debit = purchasedebit.objects.filter(company=com).aggregate(total_debit=Sum('grandtotal'))
+    totalDebit = debit.get('total_debit') if debit.get('total_debit') is not None else 0.0    
+    
+    credit = CreditNote.objects.filter(company=com).aggregate(total_credit=Sum('grandtotal'))
+    totalCredit = credit.get('total_credit') if credit.get('total_credit') is not None else 0.0
+
+    debtorsTotal = 0
+    seconddebt =  salesorder.objects.filter(comp=com).aggregate(debt2=Sum('grandtotal'))
+    debt2 = seconddebt.get('debt2') if seconddebt.get('debt2') is not None else 0.0
+
+    thirddebt = Estimate.objects.filter(company=com).aggregate(debt3=Sum('total_amount'))
+    debt3 = thirddebt.get('debt3') if thirddebt.get('debt3') is not None else 0.0
+
+    debtorsTotal = totalSaleInvoice + debt2 + debt3
+
+    creditorsTotal = 0
+    secondcrdt =  PurchaseOrder.objects.filter(company=com).aggregate(crdt2=Sum('grandtotal'))
+    crdt = secondcrdt.get('crdt2') if secondcrdt.get('crdt2') is not None else 0.0
+
+    creditorsTotal = purchaseBillSum + crdt
+    
+    
+    BillDisc = PurchaseBill.objects.filter(company=com)
+    discountRec = 0
+    for b in BillDisc:
+       billList = PurchaseBillItem.objects.filter(purchasebill=b)
+       for dis in billList:
+          discountRec += float(dis.discount)
+
+    InvoiceDisc = SalesInvoice.objects.filter(company=com)
+    discountPaid = 0
+    for i in InvoiceDisc:
+       saleList = SalesInvoiceItem.objects.filter(salesinvoice=i)
+       for dis in saleList:
+          discountPaid += float(dis.discount)
+
+    loan = LoanAccounts.objects.filter(company=com)
+    totalLoan = 0
+    for l in loan:
+      alltransaction = TransactionTable.objects.filter(loan_account=l).latest('id')
+      if alltransaction.balance_amount:
+          totalLoan += alltransaction.balance_amount
+      else:
+          totalLoan += 0
+
+
+
+    context={
+      'staff':staff,
+      'allmodules':allmodules,
+      'companyName':cmp.company_name,
+      'total_cash':round(total_cash, 2),
+      'purchaseBillSum':round(purchaseBillSum, 2),
+      'totalSaleInvoice':round(totalSaleInvoice, 2),
+      'totalDebit':round(totalDebit, 2),
+      'totalCredit':round(totalCredit, 2),
+      'billReceivable':round(billReceivable, 2),
+      'billPayable':round(billPayable, 2),
+      'discountRec':round(discountRec, 2),
+      'discountPaid':round(discountPaid, 2),
+      'totalLoan':round(totalLoan, 2),
+      'debtorsTotal':round(debtorsTotal, 2),
+      'creditorsTotal':round(creditorsTotal, 2),
+      'todayDate':todayDate,
+       
+    }
+    return render(request,'company/trial_balance.html',context)
+
+def trial_balance_date_filter(request):
+    sid = request.session.get('staff_id')
+    staff =  staff_details.objects.get(id=sid) 
+    cmp = company.objects.get(id=staff.company.id)
+    com = cmp
+    
+    fromDate = request.GET.get('fromdate')
+    toDate = request.GET.get('todate')
+    start_date = datetime.strptime(fromDate, '%Y-%m-%d').date()
+    end_date = datetime.strptime(toDate, '%Y-%m-%d').date()
+
+    cash = cash_in_hand.objects.filter(company=com,cash_date__gte=start_date,cash_date__lte=end_date).aggregate(total_cash=Sum('balance'))
+    total_cash = cash.get('total_cash') if cash.get('total_cash') is not None else 0.0
+
+    purchaseBill = PurchaseBill.objects.filter(company=com,billdate__gte=start_date,billdate__lte=end_date).aggregate(purchaseBillSum=Sum('grandtotal'),billPayable=Sum('balance'))
+    purchaseBillSum = purchaseBill.get('purchaseBillSum') if purchaseBill.get('purchaseBillSum') is not None else 0.0
+    billPayable = purchaseBill.get('billPayable') if purchaseBill.get('billPayable') is not None else 0.0
+    
+    salesInvoice = SalesInvoice.objects.filter(company=com,date__gte=start_date,date__lte=end_date).aggregate(total_saleinvoice=Sum('grandtotal'),billReceivable=Sum('totalbalance'))
+    totalSaleInvoice2 = salesInvoice.get('total_saleinvoice') if salesInvoice.get('total_saleinvoice') is not None else 0.0
+    totalSaleInvoice = "{:.2f}".format(totalSaleInvoice2) 
+    billReceivable = salesInvoice.get('billReceivable') if salesInvoice.get('billReceivable') is not None else 0.0
+
+    debit = purchasedebit.objects.filter(company=com,billdate__gte=start_date,billdate__lte=end_date).aggregate(total_debit=Sum('grandtotal'))
+    totalDebit = debit.get('total_debit') if debit.get('total_debit') is not None else 0.0    
+    
+    credit = CreditNote.objects.filter(company=com,date__gte=start_date,date__lte=end_date).aggregate(total_credit=Sum('grandtotal'))
+    totalCredit = credit.get('total_credit') if credit.get('total_credit') is not None else 0.0
+
+    debtorsTotal = 0
+    seconddebt =  salesorder.objects.filter(comp=com,orderdate__gte=start_date,orderdate__lte=end_date).aggregate(debt2=Sum('grandtotal'))
+    debt2 = seconddebt.get('debt2') if seconddebt.get('debt2') is not None else 0.0
+
+    thirddebt = Estimate.objects.filter(company=com,date__gte=start_date,date__lte=end_date).aggregate(debt3=Sum('total_amount'))
+    debt3 = thirddebt.get('debt3') if thirddebt.get('debt3') is not None else 0.0
+    debtorsTotal = float(totalSaleInvoice) + float(debt2) + float(debt3)
+
+    creditorsTotal = 0
+    secondcrdt =  PurchaseOrder.objects.filter(company=com,orderdate__gte=start_date,orderdate__lte=end_date).aggregate(crdt2=Sum('grandtotal'))
+    crdt = secondcrdt.get('crdt2') if secondcrdt.get('crdt2') is not None else 0.0
+    creditorsTotal = purchaseBillSum + crdt
+    
+    
+    BillDisc = PurchaseBill.objects.filter(company=com,billdate__gte=start_date,billdate__lte=end_date)
+    discountRec = 0
+    for b in BillDisc:
+       billList = PurchaseBillItem.objects.filter(purchasebill=b)
+       for dis in billList:
+          discountRec += float(dis.discount)
+
+    InvoiceDisc = SalesInvoice.objects.filter(company=com,date__gte=start_date,date__lte=end_date)
+    discountPaid = 0
+    for i in InvoiceDisc:
+       saleList = SalesInvoiceItem.objects.filter(salesinvoice=i)
+       for dis in saleList:
+          discountPaid += float(dis.discount)
+
+    loan = LoanAccounts.objects.filter(company=com,date__gte=start_date,date__lte=end_date)
+    totalLoan = 0
+    for l in loan:
+      alltransaction = TransactionTable.objects.filter(loan_account=l).latest('id')
+      if alltransaction.balance_amount:
+          totalLoan += alltransaction.balance_amount
+      else:
+          totalLoan += 0
+
+    stocklist = [(
+       
+        round(total_cash, 2),
+        round(purchaseBillSum, 2),
+        totalSaleInvoice,
+        round(totalDebit, 2),
+        round(totalCredit, 2),
+        round(debtorsTotal, 2),
+        round(creditorsTotal, 2),
+        round(billPayable, 2),
+        round(billReceivable, 2),
+        round(discountRec, 2),
+        round(discountPaid, 2),
+        round(totalLoan, 2),
+    )]
+
+    context={      
+      'stocklist':stocklist      
+    }
+    return JsonResponse(context)
+
+def sendEmail_trial_balance(request):
+        sid = request.session.get('staff_id')
+        staff =  staff_details.objects.get(id=sid)
+        com = company.objects.get(id=staff.company.id)
+        try:
+            if request.method == 'POST':
+                emails_string = request.POST['email_ids']
+                # Split the string by commas and remove any leading or trailing whitespace
+                emails_list = [email.strip() for email in emails_string.split(',')]
+                email_message = request.POST['email_message']
+                # print(emails_list)
+                
+                start_date = request.POST.get('start_date') or None
+                end_date = request.POST.get('end_date') or None
+
+                
+                thirdcolumn = request.POST.get('thirdColumn3')
+                fourthcolumn = request.POST.get('fourColumn3')
+                
+                if start_date != None and end_date != None:
+                    fromDate = datetime.strptime(start_date, '%Y-%m-%d').date()
+                    toDate = datetime.strptime(end_date, '%Y-%m-%d').date()
+
+                    cash = cash_in_hand.objects.filter(company=com,cash_date__gte=start_date,cash_date__lte=end_date).aggregate(total_cash=Sum('balance'))
+                    total_cash = cash.get('total_cash') if cash.get('total_cash') is not None else 0.0
+
+                    purchaseBill = PurchaseBill.objects.filter(company=com,billdate__gte=start_date,billdate__lte=end_date).aggregate(purchaseBillSum=Sum('grandtotal'),billPayable=Sum('balance'))
+                    purchaseBillSum = purchaseBill.get('purchaseBillSum') if purchaseBill.get('purchaseBillSum') is not None else 0.0
+                    billPayable = purchaseBill.get('billPayable') if purchaseBill.get('billPayable') is not None else 0.0
+                    
+                    salesInvoice = SalesInvoice.objects.filter(company=com,date__gte=start_date,date__lte=end_date).aggregate(total_saleinvoice=Sum('grandtotal'),billReceivable=Sum('totalbalance'))
+                    totalSaleInvoice2 = salesInvoice.get('total_saleinvoice') if salesInvoice.get('total_saleinvoice') is not None else 0.0
+                    totalSaleInvoice = "{:.2f}".format(totalSaleInvoice2) 
+                    billReceivable = salesInvoice.get('billReceivable') if salesInvoice.get('billReceivable') is not None else 0.0
+
+                    debit = purchasedebit.objects.filter(company=com,billdate__gte=start_date,billdate__lte=end_date).aggregate(total_debit=Sum('grandtotal'))
+                    totalDebit = debit.get('total_debit') if debit.get('total_debit') is not None else 0.0    
+                    
+                    credit = CreditNote.objects.filter(company=com,date__gte=start_date,date__lte=end_date).aggregate(total_credit=Sum('grandtotal'))
+                    totalCredit = credit.get('total_credit') if credit.get('total_credit') is not None else 0.0
+
+                    debtorsTotal = 0
+                    seconddebt =  salesorder.objects.filter(comp=com,orderdate__gte=start_date,orderdate__lte=end_date).aggregate(debt2=Sum('grandtotal'))
+                    debt2 = seconddebt.get('debt2') if seconddebt.get('debt2') is not None else 0.0
+
+                    thirddebt = Estimate.objects.filter(company=com,date__gte=start_date,date__lte=end_date).aggregate(debt3=Sum('total_amount'))
+                    debt3 = thirddebt.get('debt3') if thirddebt.get('debt3') is not None else 0.0
+                    debtorsTotal = float(totalSaleInvoice) + float(debt2) + float(debt3)
+
+                    creditorsTotal = 0
+                    secondcrdt =  PurchaseOrder.objects.filter(company=com,orderdate__gte=start_date,orderdate__lte=end_date).aggregate(crdt2=Sum('grandtotal'))
+                    crdt = secondcrdt.get('crdt2') if secondcrdt.get('crdt2') is not None else 0.0
+                    creditorsTotal = purchaseBillSum + crdt
+                    
+                    
+                    BillDisc = PurchaseBill.objects.filter(company=com,billdate__gte=start_date,billdate__lte=end_date)
+                    discountRec = 0
+                    for b in BillDisc:
+                      billList = PurchaseBillItem.objects.filter(purchasebill=b)
+                      for dis in billList:
+                          discountRec += float(dis.discount)
+
+                    InvoiceDisc = SalesInvoice.objects.filter(company=com,date__gte=start_date,date__lte=end_date)
+                    discountPaid = 0
+                    for i in InvoiceDisc:
+                      saleList = SalesInvoiceItem.objects.filter(salesinvoice=i)
+                      for dis in saleList:
+                          discountPaid += float(dis.discount)
+
+                    loan = LoanAccounts.objects.filter(company=com,date__gte=start_date,date__lte=end_date)
+                    totalLoan = 0
+                    for l in loan:
+                      alltransaction = TransactionTable.objects.filter(loan_account=l).latest('id')
+                      if alltransaction.balance_amount:
+                          totalLoan += alltransaction.balance_amount
+                      else:
+                          totalLoan += 0
+                else:
+                    fromDate = start_date
+                    toDate = end_date
+                  
+                    cash = cash_in_hand.objects.filter(company=com).aggregate(total_cash=Sum('balance'))
+                    total_cash = cash.get('total_cash') if cash.get('total_cash') is not None else 0.0
+
+                    purchaseBill = PurchaseBill.objects.filter(company=com).aggregate(purchaseBillSum=Sum('grandtotal'),billPayable=Sum('balance'))
+                    purchaseBillSum = purchaseBill.get('purchaseBillSum') if purchaseBill.get('purchaseBillSum') is not None else 0.0
+                    billPayable = purchaseBill.get('billPayable') if purchaseBill.get('billPayable') is not None else 0.0
+                    
+                    
+                    salesInvoice = SalesInvoice.objects.filter(company=com).aggregate(total_saleinvoice=Sum('grandtotal'),billReceivable=Sum('totalbalance'))
+                    totalSaleInvoice = salesInvoice.get('total_saleinvoice') if salesInvoice.get('total_saleinvoice') is not None else 0.0
+                    billReceivable = salesInvoice.get('billReceivable') if salesInvoice.get('billReceivable') is not None else 0.0
+
+                    debit = purchasedebit.objects.filter(company=com).aggregate(total_debit=Sum('grandtotal'))
+                    totalDebit = debit.get('total_debit') if debit.get('total_debit') is not None else 0.0    
+                    
+                    credit = CreditNote.objects.filter(company=com).aggregate(total_credit=Sum('grandtotal'))
+                    totalCredit = credit.get('total_credit') if credit.get('total_credit') is not None else 0.0
+
+                    debtorsTotal = 0
+                    seconddebt =  salesorder.objects.filter(comp=com).aggregate(debt2=Sum('grandtotal'))
+                    debt2 = seconddebt.get('debt2') if seconddebt.get('debt2') is not None else 0.0
+
+                    thirddebt = Estimate.objects.filter(company=com).aggregate(debt3=Sum('total_amount'))
+                    debt3 = thirddebt.get('debt3') if thirddebt.get('debt3') is not None else 0.0
+
+                    debtorsTotal = totalSaleInvoice + debt2 + debt3
+
+                    creditorsTotal = 0
+                    secondcrdt =  PurchaseOrder.objects.filter(company=com).aggregate(crdt2=Sum('grandtotal'))
+                    crdt = secondcrdt.get('crdt2') if secondcrdt.get('crdt2') is not None else 0.0
+
+                    creditorsTotal = purchaseBillSum + crdt
+                    
+                    
+                    BillDisc = PurchaseBill.objects.filter(company=com)
+                    discountRec = 0
+                    for b in BillDisc:
+                      billList = PurchaseBillItem.objects.filter(purchasebill=b)
+                      for dis in billList:
+                          discountRec += float(dis.discount)
+
+                    InvoiceDisc = SalesInvoice.objects.filter(company=com)
+                    discountPaid = 0
+                    for i in InvoiceDisc:
+                      saleList = SalesInvoiceItem.objects.filter(salesinvoice=i)
+                      for dis in saleList:
+                          discountPaid += float(dis.discount)
+
+                    loan = LoanAccounts.objects.filter(company=com)
+                    totalLoan = 0
+                    for l in loan:
+                      alltransaction = TransactionTable.objects.filter(loan_account=l).latest('id')
+                      if alltransaction.balance_amount:
+                          totalLoan += alltransaction.balance_amount
+                      else:
+                          totalLoan += 0
+                
+                stocklist = [(
+                    round(total_cash, 2), 
+                    round(purchaseBillSum, 2),
+                    totalSaleInvoice,
+                    round(totalDebit, 2),
+                    round(totalCredit, 2),
+                    round(debtorsTotal, 2),
+                    round(creditorsTotal, 2),
+                    round(billPayable, 2),
+                    round(billReceivable, 2),
+                    round(discountRec, 2),
+                    round(discountPaid, 2),
+                    round(totalLoan, 2),
+                )]
+                context = {'stocklist':stocklist,'cmp':com,'companyName':com.company_name,
+                          'start_date':fromDate,'end_date':toDate,'thirdcolumn':thirdcolumn,
+                          'fourthcolumn':fourthcolumn}
+                
+                template_path = 'company/trial_balance_pdf.html'
+                template = get_template(template_path)
+                html  = template.render(context)
+                result = BytesIO()
+                # pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+                pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+                pdf = result.getvalue()
+                filename = f'Trial Balance'
+                subject = f"Trial Balance"
+                from django.core.mail import EmailMessage as EmailMsg
+                email = EmailMsg(subject, f"Hi,\nPlease find the attached Trial Balance for   \n{email_message}\n\n--\nRegards,\n{com.company_name}\n{com.address}\n{com.state} - {com.country}\n{com.contact}", from_email=settings.EMAIL_HOST_USER, to=emails_list)
+                email.attach(filename, pdf, "application/pdf")
+                email.send(fail_silently=False)
+
+                messages.success(request, 'Trial Balance has been shared via email successfully..!')
+                return redirect(trial_balance)
+        except Exception as e:
+            print(e)
+            messages.error(request, f'{e}')
+            return redirect(trial_balance)
+            
+#End
+
+
+def gstr2new1_pdf(request):
+  print("inside function")
+  if 'staff_id' in request.session:
+    staff_id = request.session['staff_id']
+  else:
+    return redirect('/')
+  staff = staff_details.objects.get(id=staff_id)
+  cmp = staff.company 
+  party_name = request.POST.get('partyname')
+  allmodules= modules_list.objects.get(company=cmp,status='New')
+
+  from_date=request.POST['fdate']
+  to_date=request.POST['tdate']
+
+  if request.method=="POST" and from_date!='' and to_date!='':
+    pur_bill = PurchaseBill.objects.filter(company=cmp.id,billdate__range=[from_date,to_date])
+    pur_return = purchasedebit.objects.filter(company=cmp.id,billdate__range=[from_date,to_date])
+  else:
+    pur_bill = PurchaseBill.objects.filter(company=cmp.id)
+    pur_return = purchasedebit.objects.filter(company=cmp.id)
+
+  print(f"from: {from_date}\tto: {to_date}")
+
+  # from_date = datetime.strftime(from_date,"%Y-%m-%d")
+  # to_date = datetime.strftime(to_date,"%Y-%m-%d")
+
+  search=request.POST['search']
+  filters_by=request.POST['filter']
+  emails_string = request.POST['email']
+  emails= [email.strip() for email in emails_string.split(',')]
+  mess=request.POST['message']
+
+  content={
+  'staff':staff,
+  'sdate':from_date,
+  'edate':to_date,
+  'allmodules':allmodules,
+  'staff':staff,
+  'purchase_bill': pur_bill, 
+  'purchase_return': pur_return,
+  }
+  template_path = 'company/gstr2new1_pdf.html'
+  template = get_template(template_path)
+
+  html  = template.render(content)
+  result = BytesIO()
+  pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+  pdf = result.getvalue()
+  filename = f'GSTR 2 Report.pdf'
+  email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+  email.attach(filename, pdf, "application/pdf")
+  email.send(fail_silently=False)
+  messages.info(request,'gstr2 report shared via mail')
+  print("mail send succesfully")
+  return redirect('gstrr2')
+
+def gstr2new2_pdf(request):
+  print("inside function")
+  if 'staff_id' in request.session:
+    staff_id = request.session['staff_id']
+  else:
+    return redirect('/')
+  staff = staff_details.objects.get(id=staff_id)
+  cmp = staff.company 
+  party_name = request.POST.get('partyname')
+  allmodules= modules_list.objects.get(company=cmp,status='New')
+
+  from_date=request.POST['fdate']
+  to_date=request.POST['tdate']
+
+  if request.method=="POST" and from_date!='' and to_date!='':
+    pur_bill = PurchaseBill.objects.filter(company=cmp.id,billdate__range=[from_date,to_date])
+    pur_return = purchasedebit.objects.filter(company=cmp.id,billdate__range=[from_date,to_date])
+  else:
+    pur_bill = PurchaseBill.objects.filter(company=cmp.id)
+    pur_return = purchasedebit.objects.filter(company=cmp.id)
+
+  print(f"from: {from_date}\tto: {to_date}")
+
+  # from_date = datetime.strftime(from_date,"%Y-%m-%d")
+  # to_date = datetime.strftime(to_date,"%Y-%m-%d")
+
+  search=request.POST['search']
+  filters_by=request.POST['filter']
+  emails_string = request.POST['email']
+  emails= [email.strip() for email in emails_string.split(',')]
+  mess=request.POST['message']
+
+  content={
+  'staff':staff,
+  'sdate':from_date,
+  'edate':to_date,
+  'allmodules':allmodules,
+  'staff':staff,
+  'purchase_bill': pur_bill, 
+  'purchase_return': pur_return,
+  }
+  template_path = 'company/gstr2new2_pdf.html'
+  template = get_template(template_path)
+
+  html  = template.render(content)
+  result = BytesIO()
+  pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+  pdf = result.getvalue()
+  filename = f'GSTR 2 Report.pdf'
+  email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+  email.attach(filename, pdf, "application/pdf")
+  email.send(fail_silently=False)
+  messages.info(request,'gstr2 report shared via mail')
+  print("mail send succesfully")
+  return redirect('gstrr2')
+  
+  
+def sales_or_purchase_report_by_item(request):
+  if 'staff_id' in request.session:
+    staff_id = request.session['staff_id']
+  else:
+    return redirect('/')
+  staff = staff_details.objects.get(id=staff_id)
+  cmp = staff.company 
+  allmodules= modules_list.objects.get(company=cmp,status='New')
+
+  from_date = request.POST.get('from_date')
+  to_date = request.POST.get('to_date')
+
+  items = ItemModel.objects.filter(company=cmp.id)
+  Transaction = list()
+
+  if request.method=="POST" and from_date!='' and to_date!='':
+    for i in items:
+      Transaction += list(
+        SalesInvoiceItem.objects.filter(company=cmp.id,item=i.id,salesinvoice__date__range=[from_date,to_date]).annotate(object_item_id=F('item__id'),object_item_name=F('item__item_name'),object_sale_amount=F('totalamount'),object_purchase_amount=Value("0.0",output_field=CharField()))
+      )+list(
+        PurchaseBillItem.objects.filter(company=cmp.id,product=i.id,purchasebill__billdate__range=[from_date,to_date]).annotate(object_item_id=F('product__id'),object_item_name=F('product__item_name'),object_sale_amount=Value("0.0",output_field=CharField()),object_purchase_amount=F('total'))
+      )
+  else:
+    for i in items:
+      Transaction += list(
+        SalesInvoiceItem.objects.filter(company=cmp.id,item=i.id).annotate(object_item_id=F('item__id'),object_item_name=F('item__item_name'),object_sale_amount=F('totalamount'),object_purchase_amount=Value("0.0",output_field=CharField()))
+      )+list(
+        PurchaseBillItem.objects.filter(company=cmp.id,product=i.id).annotate(object_item_id=F('product__id'),object_item_name=F('product__item_name'),object_sale_amount=Value("0.0",output_field=CharField()),object_purchase_amount=F('total'))
+      )
+
+  
+
+  all_transaction = []
+  total_sale_amount = 0
+  total_purch_amount = 0
+  if items and Transaction:
+    for j in items:
+      for i in Transaction:
+        if i.object_item_id == j.id:
+          total_sale_amount += float(i.object_sale_amount)
+          total_purch_amount += float(i.object_purchase_amount)
+      print(f'\ntotal_sale_amount:{int(total_sale_amount)}\t total_purch_amount:{int(total_purch_amount)}')
+      if int(total_sale_amount) != 0 or int(total_purch_amount) != 0:
+        all_transaction.append({
+          "name":j.item_name,
+          "sale_amount":total_sale_amount,
+          "purchase_amount":total_purch_amount,
+        })
+        total_sale_amount =0
+        total_purch_amount=0
+
+  context = {
+    'staff':staff,
+    'company': cmp,
+    'allmodules':allmodules,
+    "from_date":from_date,
+    "to_date":to_date,
+    "Transaction":Transaction,
+    "all_transaction":all_transaction,
+  }
+
+  return render(request, 'company/sales_or_purchase_report_by_item.html', context)
+
+
+def sales_or_purchase_report_by_item_send_mail(request):
+  if 'staff_id' in request.session:
+    staff_id = request.session['staff_id']
+  else:
+    return redirect('/')
+  staff = staff_details.objects.get(id=staff_id)
+  cmp = staff.company 
+  party_name = request.POST.get('partyname')
+  allmodules= modules_list.objects.get(company=cmp,status='New')
+
+  from_date=request.POST['fdate']
+  to_date=request.POST['tdate']
+
+  items = ItemModel.objects.filter(company=cmp.id)
+
+  Transaction= list()
+  if request.method=="POST" and from_date!='' and to_date!='':
+    for i in items:
+      Transaction += list(
+        SalesInvoiceItem.objects.filter(company=cmp.id,item=i.id,salesinvoice__date__range=[from_date,to_date]).annotate(object_item_id=F('item__id'),object_item_name=F('item__item_name'),object_sale_amount=F('totalamount'),object_purchase_amount=Value("0.0",output_field=CharField()))
+      )+list(
+        PurchaseBillItem.objects.filter(company=cmp.id,product=i.id,purchasebill__billdate__range=[from_date,to_date]).annotate(object_item_id=F('product__id'),object_item_name=F('product__item_name'),object_sale_amount=Value("0.0",output_field=CharField()),object_purchase_amount=F('total'))
+      )
+  else:
+    for i in items:
+      Transaction += list(
+        SalesInvoiceItem.objects.filter(company=cmp.id,item=i.id).annotate(object_item_id=F('item__id'),object_item_name=F('item__item_name'),object_sale_amount=F('totalamount'),object_purchase_amount=Value("0.0",output_field=CharField()))
+      )+list(
+        PurchaseBillItem.objects.filter(company=cmp.id,product=i.id).annotate(object_item_id=F('product__id'),object_item_name=F('product__item_name'),object_sale_amount=Value("0.0",output_field=CharField()),object_purchase_amount=F('total'))
+      )
+
+  
+
+  all_transaction = []
+  total_sale_amount = total_purch_amount = final_total_sale_amount = final_total_purch_amount = 0
+
+  if items and Transaction:
+    for j in items:
+      for i in Transaction:
+        if i.object_item_id == j.id:
+          total_sale_amount += float(i.object_sale_amount)
+          total_purch_amount += float(i.object_purchase_amount)
+      print(f'\ntotal_sale_amount:{int(total_sale_amount)}\t total_purch_amount:{int(total_purch_amount)}')
+      if int(total_sale_amount) != 0 or int(total_purch_amount) != 0:
+        all_transaction.append({
+          "name":j.item_name,
+          "sale_amount":total_sale_amount,
+          "purchase_amount":total_purch_amount,
+        })
+        total_sale_amount =0
+        total_purch_amount=0
+    final_total_sale_amount += total_sale_amount
+    final_total_purch_amount += total_purch_amount
+
+  
+
+  search=request.POST['search']
+  filters_by=request.POST['filter']
+  emails_string = request.POST['email']
+  emails= [email.strip() for email in emails_string.split(',')]
+  mess=request.POST['message']
+
+  content={
+  'staff':staff,
+  'sdate':from_date,
+  'edate':to_date,
+  'allmodules':allmodules,
+  'staff':staff,
+  "all_transaction":all_transaction,
+  "final_total_sale_amount":final_total_sale_amount,
+  "final_total_purch_amount":final_total_purch_amount,
+  }
+  template_path = 'company/sales_or_purchase_report_by_item_send_mail.html'
+  template = get_template(template_path)
+
+  html  = template.render(content)
+  result = BytesIO()
+  pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+  pdf = result.getvalue()
+  filename = f'sales and purchase by report Report.pdf'
+  email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+  email.attach(filename, pdf, "application/pdf")
+  email.send(fail_silently=False)
+  messages.info(request,'sales/purchase by report report shared via mail')
+  print("mail send succesfully")
+  return redirect('sales_or_purchase_report_by_item')
+  
+  
+def outstanding_receivable(request):
+    if 'staff_id' in request.session:
+        if request.session.has_key('staff_id'):
+            staff_id = request.session['staff_id']
+        else:
+            return redirect('/')
+    
+    staff = staff_details.objects.get(id=staff_id)
+    company_instance = company.objects.get(id=staff.company.id)
+    salesinvoices = SalesInvoice.objects.filter(company=company_instance)
+    allmodules = modules_list.objects.get(company=staff.company, status='New')
+
+    # Get date filter values from the request
+    from_date = request.GET.get('from_date')
+    to_date = request.GET.get('to_date')
+
+    if from_date and to_date:
+        salesinvoices = salesinvoices.filter(date__range=[from_date, to_date])
+
+    # Aggregate data
+    outstanding_data = {}
+    for invoice in salesinvoices:
+        if float(invoice.totalbalance) == 0:
+            continue  # Skip invoices with a zero balance
+        if invoice.party.party_name not in outstanding_data:
+            outstanding_data[invoice.party.party_name] = {
+                'balance_amount': 0.0,  # Initialize as a float
+                'invoice_count': 0,
+                'invoices': []
+            }
+        outstanding_data[invoice.party.party_name]['balance_amount'] += float(invoice.totalbalance)
+        outstanding_data[invoice.party.party_name]['invoice_count'] += 1
+        outstanding_data[invoice.party.party_name]['invoices'].append(invoice)
+
+    context = {
+        'staff': staff,
+        'outstanding_data': outstanding_data,
+        'allmodules': allmodules,
+        'from_date': from_date,
+        'to_date': to_date,
+    }
+    return render(request, 'company/outstanding_receivable.html', context)
+
+
+def send_receivable_report_via_mail(request):
+    if request.method == 'GET':
+        from_date = request.GET.get('from_date')
+        to_date = request.GET.get('to_date')
+        search = request.GET.get('search_input')
+        emails_string = request.GET.get('email_ids')
+        emails = [email.strip() for email in emails_string.split(',')]
+        mess = request.GET.get('email_message')
+        id = request.session.get('staff_id')
+        staff = staff_details.objects.get(id=id)
+
+        salesinvoices = SalesInvoice.objects.filter(staff_id__company=staff.company).order_by('id')
+        if from_date and to_date:
+            salesinvoices = salesinvoices.filter(date__range=[from_date, to_date])
+        if search:
+            salesinvoices = salesinvoices.filter(
+                Q(invoice_no__icontains=search) |
+                Q(party__party_name__icontains=search)
+            )
+        
+        outstanding_data = {}
+        for invoice in salesinvoices:
+            if float(invoice.totalbalance) == 0:
+                continue  # Skip invoices with a zero balance
+            if invoice.party.party_name not in outstanding_data:
+                outstanding_data[invoice.party.party_name] = {
+                    'balance_amount': 0.0,  # Initialize as a float
+                    'invoice_count': 0,
+                    'invoices': []
+                }
+            outstanding_data[invoice.party.party_name]['balance_amount'] += float(invoice.totalbalance)
+            outstanding_data[invoice.party.party_name]['invoice_count'] += 1
+            outstanding_data[invoice.party.party_name]['invoices'].append(invoice)
+
+        content = {
+            'staff': staff,
+            'outstanding_data': outstanding_data,
+            'from_date': from_date,
+            'to_date': to_date,
+        }
+        
+        template_path = 'company/share_receivable_mail.html'
+        template = get_template(template_path)
+        html = template.render(content)
+        result = BytesIO()
+        pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+        pdf = result.getvalue()
+        filename = f'Outstanding Receivables Report.pdf'
+        subject = f"Sharing Outstanding Receivables Report"
+        email = EmailMessage(
+            subject,
+            f"Hi,\nPlease find the attached Outstanding Receivables Report. \n{mess}\n\n--\nRegards,\n{staff.company.company_name}\n{staff.company.address}\n{staff.company.state} - {staff.company.pincode}",
+            from_email=settings.EMAIL_HOST_USER,
+            to=emails
+        )
+        email.attach(filename, pdf, "application/pdf")
+        email.send(fail_silently=False)
+        message = 'Report has been shared via email successfully..!'
+        return JsonResponse({'message': message})
+    else:
+        message = 'Report cannot be sent..!'
+        return JsonResponse({'message': message})
+        
+        
+def sales_summary(request):
+  id=request.session.get('staff_id')
+  staff=staff_details.objects.get(id=id)
+  sales_invoices=SalesInvoice.objects.filter(company=staff.company)
+  sales_invoice_items=SalesInvoiceItem.objects.filter(company=staff.company)
+  paid = unpaid = total=0
+ 
+  for i in sales_invoices:
+    paid +=float(i.paidoff)
+    unpaid +=float(i.totalbalance)
+    total +=float(i.grandtotal)
+
+  
+  content={
+    
+    'bill':sales_invoices,
+    'debit':sales_invoice_items,
+    'staff':staff,
+    'paid':paid,
+    'unpaid':unpaid,
+    'total':total
+  }
+  return render(request,'company/salesummaryhsn.html',content)
+
+#----------------------------------------------------
+def send_hsn_report_via_mail(request):
+  if request.method == 'POST':
+    from_date_str=request.POST['fdate']
+    To_date_str=request.POST['tdate']
+    search=request.POST['search']
+    filters_by=request.POST['filter']
+    emails_string = request.POST['email']
+    emails= [email.strip() for email in emails_string.split(',')]
+    mess=request.POST['message']
+    if from_date_str and To_date_str:
+      id=request.session.get('staff_id')
+      staff=staff_details.objects.get(id=id)
+
+      sale_data=SalesInvoiceItem.objects.filter(salesinvoice__date__range=[from_date_str, To_date_str],salesinvoice__company=staff.company)
+      print(sale_data,'a')
+      
+      
+      ttotal = sum(item.totalamount for item in sale_data)
+      
+     
+      paid = unpaid = total=0
+     
+      
+
+      c=0
+      for i in sale_data:
+        c=c+1
+        
+        paid +=float(i.salesinvoice.paidoff)
+        unpaid +=float(i.salesinvoice.totalbalance)
+        total +=float(i.salesinvoice.grandtotal)
+        
+        
+      content={
+      'bill':sale_data,
+      'staff':staff,
+      'paid':paid,
+      'unpaid':unpaid,
+      'total':total,
+      'ttotal':ttotal,
+      'c':c,
+      'sdate':from_date_str,
+      'edate':To_date_str
+      }
+      template_path = 'company/share_salehsn_report_mail.html'
+      template = get_template(template_path)
+
+      html  = template.render(content)
+      result = BytesIO()
+      pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+      pdf = result.getvalue()
+      filename = f'Sales summary hsn Report.pdf'
+      email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+      email.attach(filename, pdf, "application/pdf")
+      email.send(fail_silently=False)
+      messages.info(request,'sales summary by hsn shared via mail')
+      return redirect('sales_summary')
+    print(from_date_str)
+    print(To_date_str)
+    
+    if search:
+      print(search)
+      if SalesInvoiceItem.objects.filter(salesinvoice__date__startswith=search):
+          id=request.session.get('staff_id')
+          staff=staff_details.objects.get(id=id)
+          if SalesInvoiceItem.objects.filter(staff=id,salesinvoice__date__startswith=search).exists:
+            sale_data=SalesInvoiceItem.objects.filter(staff=id,salesinvoice__date__startswith=search)
+            ttotal = sum(item.totalamount for item in sale_data)
+            paid = unpaid = total=0
+            c=0
+            for i in sale_data:
+              c=c+1
+              paid +=float(i.salesinvoicepaidoff)
+              unpaid +=float(i.salesinvoicetotalbalance)
+              total +=float(i.salesinvoicegrandtotal)
+            content={
+            'bill':sale_data,
+            'c':c,
+            'ttotal':ttotal,
+            'staff':staff,
+            'paid':paid,
+            'unpaid':unpaid,
+            'total':total
+            }
+            template_path = 'company/share_salehsn_report_mail.html'
+            template = get_template(template_path)
+
+            html  = template.render(content)
+            result = BytesIO()
+            pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+            pdf = result.getvalue()
+            filename = f'Sales Report.pdf'
+            email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+            email.attach(filename, pdf, "application/pdf")
+            email.send(fail_silently=False)
+            messages.info(request,'sales report shared via mail')
+            return redirect('sales_summary')
+      
+      if SalesInvoiceItem.objects.filter(hsn__startswith=search):
+        id=request.session.get('staff_id')
+        staff=staff_details.objects.get(id=id)
+        hsn=SalesInvoiceItem.objects.get(hsn__startswith=search)
+        if SalesInvoiceItem.objects.filter(staff=id,hsn=hsn).exists:
+          sale_data=SalesInvoiceItem.objects.filter(staff=id,hsn=hsn)
+          ttotal = sum(item.totalamount for item in sale_data)
+          paid = unpaid = total=0
+          c=0
+          for i in sale_data:
+            c=c+1
+            paid +=float(i.paidoff)
+            unpaid +=float(i.totalbalance)
+            total +=float(i.grandtotal)
+          content={
+          'bill':sale_data,
+          'c':c,
+          'ttotal':ttotal,
+          'staff':staff,
+          'paid':paid,
+          'unpaid':unpaid,
+          'total':total
+          }
+          template_path = 'company/share_salehsn_report_mail.html'
+          template = get_template(template_path)
+
+          html  = template.render(content)
+          result = BytesIO()
+          pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+          pdf = result.getvalue()
+          filename = f'Sales Report.pdf'
+          email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+          email.attach(filename, pdf, "application/pdf")
+          email.send(fail_silently=False)
+          messages.info(request,'sale report shared via mail')
+          return redirect('sales_sumary') 
+      if SalesInvoiceItem.objects.filter(totalamount__istartswith=search):
+        print(search)
+        id=request.session.get('staff_id')
+        staff=staff_details.objects.get(id=id)
+        if SalesInvoiceItem.objects.filter(staff=id,totalamount__istartswith=search).exists:
+         
+          sale_data=SalesInvoiceItem.objects.filter(staff=id,totalamount__istartswith=search)
+          ttotal = sum(item.totalamount for item in sale_data)
+          paid = unpaid = total=0
+          c=0
+          for i in sale_data:
+            c=c+1
+            paid +=float(i.salesinvoice.paidoff)
+            unpaid +=float(i.salesinvoice.totalbalance)
+            total +=float(i.salesinvoice.grandtotal)
+          content={
+          'bill':sale_data,
+          'c':c,
+          'ttotal':ttotal,
+          'staff':staff,
+          'paid':paid,
+          'unpaid':unpaid,
+          'total':total
+          }
+          template_path = 'company/share_salehsn_report_mail.html'
+          template = get_template(template_path)
+
+          html  = template.render(content)
+          result = BytesIO()
+          pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+          pdf = result.getvalue()
+          filename = f'Sales Report.pdf'
+          email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+          email.attach(filename, pdf, "application/pdf")
+          email.send(fail_silently=False)
+          messages.info(request,'sales report shared via mail')
+          return redirect('sales_summary')    
+        
+      if search.isdigit():
+        print(search)
+        if SalesInvoiceItem.objects.filter(hsn__startswith=search):
+          id=request.session.get('staff_id')
+          staff=staff_details.objects.get(id=id)
+          if SalesInvoiceItem.objects.filter(staff=id,hsn__startswith=search).exists:
+            sale_data=SalesInvoiceItem.objects.filter(staff=id,hsn__startswith=search)
+            ttotal = sum(item.totalamount for item in sale_data)
+            paid = unpaid = total=0
+            c=0
+            for i in sale_data:
+              c=c+1
+              paid +=float(i.salesinvoicepaidoff)
+              unpaid +=float(i.salesinvoicetotalbalance)
+              total +=float(i.salesinvoicegrandtotal)
+            content={
+            'bill':sale_data,
+            'ttotal':ttotal,
+            'c':c,
+            'staff':staff,
+            'paid':paid,
+            'unpaid':unpaid,
+            'total':total
+            }
+            template_path = 'company/share_salehsn_report_mail.html'
+            template = get_template(template_path)
+
+            html  = template.render(content)
+            result = BytesIO()
+            pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+            pdf = result.getvalue()
+            filename = f'Sale Report.pdf'
+            email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+            email.attach(filename, pdf, "application/pdf")
+            email.send(fail_silently=False)
+            messages.info(request,'sale report shared via mail')
+            return redirect('sales_summary')
+             
+        if SalesInvoice.objects.filter(grandtotal__startswith=search):
+          id=request.session.get('staff_id')
+          staff=staff_details.objects.get(id=id)
+          if SalesInvoice.objects.filter(staff=id,grandtotal__startswith=search).exists:
+            sale_data=SalesInvoice.objects.filter(staff=id,grandtotal__startswith=search)
+            ttotal = sum(item.totalamount for item in sale_data)
+            paid = unpaid = total=0
+            c=0
+            for i in sale_data:
+              c=c+1
+              paid +=float(i.paidoff)
+              unpaid +=float(i.totalbalance)
+              total +=float(i.grandtotal)
+            content={
+            'bill':sale_data,
+            'c':c,
+            'ttotal':ttotal,
+            'staff':staff,
+            'paid':paid,
+            'unpaid':unpaid,
+            'total':total
+            }
+            template_path = 'company/share_salehsn_report_mail.html'
+            template = get_template(template_path)
+
+            html  = template.render(content)
+            result = BytesIO()
+            pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+            pdf = result.getvalue()
+            filename = f'Sale Report.pdf'
+            email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+            email.attach(filename, pdf, "application/pdf")
+            email.send(fail_silently=False)
+            messages.info(request,'sale report shared via mail')
+            return redirect('sales_summary')    
+            
+        if SalesInvoiceItem.objects.filter(totalamount__startswith=search):
+          id=request.session.get('staff_id')
+          staff=staff_details.objects.get(id=id)
+          if SalesInvoiceItem.objects.filter(staff=id,totalamount__startswith=search).exists:
+            sale_data=SalesInvoiceItem.objects.filter(staff=id,totalamount__startswith=search)
+            ttotal = sum(item.totalamount for item in sale_data)
+            paid = unpaid = total=0
+            c=0
+            for i in sale_data:
+              c=c+1
+              paid +=float(i.salesinvoice.paidoff)
+              unpaid +=float(i.salesinvoice.totalbalance)
+              total +=float(i.salesinvoice.grandtotal)
+            content={
+              'bill':sale_data,
+              'c':c,
+              'ttotal':ttotal,
+              'staff':staff,
+              'paid':paid,
+              'unpaid':unpaid,
+              'total':total
+              }
+            template_path = 'company/share_sales_report_mail.html'
+            template = get_template(template_path)
+
+            html  = template.render(content)
+            result = BytesIO()
+            pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+            pdf = result.getvalue()
+            filename = f'Sale Report.pdf'
+            email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+            email.attach(filename, pdf, "application/pdf")
+            email.send(fail_silently=False)
+            messages.info(request,'sale report shared via mail')
+            return redirect('sales_summary') 
+      if search == '0' or search =='0' or search =='0' or search =='0':
+        id=request.session.get('staff_id')
+        staff=staff_details.objects.get(id=id)
+        if SalesInvoiceItem.objects.filter(staff=id).exists:
+          sale_data=SalesInvoiceItem.objects.filter(staff=id)
+          ttotal = sum(item.totalamount for item in sale_data)
+          paid = unpaid = total=0
+          c=0
+          for i in sale_data:
+            c=c+1
+            paid +=float(i.paidoff)
+            unpaid +=float(i.totalbalance)
+            total +=float(i.grandtotal)
+          content={
+            'bill':sale_data,
+            'c':c,
+            'ttotal':ttotal,
+            'staff':staff,
+            'paid':paid,
+            'unpaid':unpaid,
+            'total':total
+            }
+          template_path = 'company/share_salehsn_report_mail.html'
+          template = get_template(template_path)
+
+          html  = template.render(content)
+          result = BytesIO()
+          pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+          pdf = result.getvalue()
+          filename = f'Sale summary hsnReport.pdf'
+          email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+          email.attach(filename, pdf, "application/pdf")
+          email.send(fail_silently=False)
+          messages.info(request,'sale summary by hsn shared via mail')
+          return redirect('sales_summary')   
+    if filters_by:
+      if SalesInvoiceItem.objects.filter(hsn__startswith=filters_by) :
+          id=request.session.get('staff_id')
+          staff=staff_details.objects.get(id=id)
+          if SalesInvoiceItem.objects.filter(staff=id,hsn__startswith=filters_by).exists :
+            sale_data=SalesInvoiceItem.objects.filter(staff=id,hsn__startswith=filters_by)
+            
+            paid = unpaid = total=0
+            for i in sale_data:
+              paid +=float(i.paidoff)
+              unpaid +=float(i.totalbalance)
+              total +=float(i.grandtotal)
+            content={
+            'bill':sale_data,
+            
+            'staff':staff,
+            'paid':paid,
+            'unpaid':unpaid,
+            'total':total
+            }
+            template_path = 'company/share_salehsn_report_mail.html'
+            template = get_template(template_path)
+
+            html  = template.render(content)
+            result = BytesIO()
+            pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+            pdf = result.getvalue()
+            filename = f'Sale Report.pdf'
+            email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+            email.attach(filename, pdf, "application/pdf")
+            email.send(fail_silently=False)
+            messages.info(request,'sale report shared via mail')
+            return redirect('sales_summary')
+      
+      if SalesInvoiceItem.objects.filter(totalamount__startswith=filters_by):
+        id=request.session.get('staff_id')
+        staff=staff_details.objects.get(id=id)
+        totalamount=SalesInvoiceItem.objects.get(totalamount__startswith=filters_by)
+        if SalesInvoiceItem.objects.filter(staff=id,totalamount=totalamount).exists:
+          
+          sale_data=SalesInvoiceItem.objects.filter(staff=id,totalamount=totalamount)
+          
+          paid = unpaid = total=0
+          for i in sale_data:
+            paid +=float(i.paidoff)
+            unpaid +=float(i.totalbalance)
+            total +=float(i.grandtotal)
+          content={
+          'bill':sale_data,
+          
+          'staff':staff,
+          'paid':paid,
+          'unpaid':unpaid,
+          'total':total
+          }
+          template_path = 'company/share_salehsn_report_mail.html'
+          template = get_template(template_path)
+
+          html  = template.render(content)
+          result = BytesIO()
+          pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+          pdf = result.getvalue()
+          filename = f'Sale Report.pdf'
+          email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+          email.attach(filename, pdf, "application/pdf")
+          email.send(fail_silently=False)
+          messages.info(request,'sale report shared via mail')
+          return redirect('sales_summary') 
+      if SalesInvoiceItem.objects.filter(tax__istartswith=filters_by):
+        print(filters_by)
+        id=request.session.get('staff_id')
+        staff=staff_details.objects.get(id=id)
+        if SalesInvoiceItem.objects.filter(staff=id,tax__istartswith=filters_by).exists:
+         
+          sale_data=SalesInvoiceItem.objects.filter(staff=id,tax__istartswith=filters_by)
+          
+          paid = unpaid = total=0
+          for i in sale_data:
+            paid +=float(i.paidoff)
+            unpaid +=float(i.totalbalance)
+            total +=float(i.grandtotal)
+          content={
+          'bill':sale_data,
+          
+          'staff':staff,
+          'paid':paid,
+          'unpaid':unpaid,
+          'total':total
+          }
+          template_path = 'company/share_salehsn_report_mail.html'
+          template = get_template(template_path)
+
+          html  = template.render(content)
+          result = BytesIO()
+          pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+          pdf = result.getvalue()
+          filename = f'Sale Report.pdf'
+          email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+          email.attach(filename, pdf, "application/pdf")
+          email.send(fail_silently=False)
+          messages.info(request,'sale report shared via mail')
+          return redirect('sales_summary')  
+      if SalesInvoice.objects.filter(igst__istartswith=filters_by):
+        print(filters_by)
+        id=request.session.get('staff_id')
+        staff=staff_details.objects.get(id=id)
+        if SalesInvoice.objects.filter(staff=id,igst__istartswith=filters_by).exists:
+         
+          sale_data=SalesInvoice.objects.filter(staff=id,igst__istartswith=filters_by)
+          
+          paid = unpaid = total=0
+          for i in sale_data:
+            paid +=float(i.paidoff)
+            unpaid +=float(i.totalbalance)
+            total +=float(i.grandtotal)
+          content={
+          'bill':sale_data,
+          
+          'staff':staff,
+          'paid':paid,
+          'unpaid':unpaid,
+          'total':total
+          }
+          template_path = 'company/share_salehsn_report_mail.html'
+          template = get_template(template_path)
+
+          html  = template.render(content)
+          result = BytesIO()
+          pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+          pdf = result.getvalue()
+          filename = f'Sale Report.pdf'
+          email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+          email.attach(filename, pdf, "application/pdf")
+          email.send(fail_silently=False)
+          messages.info(request,'sale report shared via mail')
+          return redirect('sales_summary') 
+      if SalesInvoice.objects.filter(sgst__istartswith=filters_by):
+        print(filters_by)
+        id=request.session.get('staff_id')
+        staff=staff_details.objects.get(id=id)
+        if SalesInvoice.objects.filter(staff=id,sgst__istartswith=filters_by).exists:
+         
+          sale_data=SalesInvoice.objects.filter(staff=id,sgst__istartswith=filters_by)
+          
+          paid = unpaid = total=0
+          for i in sale_data:
+            paid +=float(i.paidoff)
+            unpaid +=float(i.totalbalance)
+            total +=float(i.grandtotal)
+          content={
+          'bill':sale_data,
+          
+          'staff':staff,
+          'paid':paid,
+          'unpaid':unpaid,
+          'total':total
+          }
+          template_path = 'company/share_salehsn_report_mail.html'
+          template = get_template(template_path)
+
+          html  = template.render(content)
+          result = BytesIO()
+          pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+          pdf = result.getvalue()
+          filename = f'Sale Report.pdf'
+          email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+          email.attach(filename, pdf, "application/pdf")
+          email.send(fail_silently=False)
+          messages.info(request,'sale report shared via mail')
+          return redirect('sales_summary')
+      if SalesInvoice.objects.filter(cgst__istartswith=filters_by):
+        print(filters_by)
+        id=request.session.get('staff_id')
+        staff=staff_details.objects.get(id=id)
+        if SalesInvoice.objects.filter(staff=id,cgst__istartswith=filters_by).exists:
+         
+          sale_data=SalesInvoice.objects.filter(staff=id,cgst__istartswith=filters_by)
+          
+          paid = unpaid = total=0
+          for i in sale_data:
+            paid +=float(i.paidoff)
+            unpaid +=float(i.totalbalance)
+            total +=float(i.grandtotal)
+          content={
+          'bill':sale_data,
+          
+          'staff':staff,
+          'paid':paid,
+          'unpaid':unpaid,
+          'total':total
+          }
+          template_path = 'company/share_salehsn_report_mail.html'
+          template = get_template(template_path)
+
+          html  = template.render(content)
+          result = BytesIO()
+          pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+          pdf = result.getvalue()
+          filename = f'Sale Report.pdf'
+          email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+          email.attach(filename, pdf, "application/pdf")
+          email.send(fail_silently=False)
+          messages.info(request,'sale report shared via mail')
+          return redirect('sales_summary')       
+    
+      if search.isdigit():
+       
+        if SalesInvoiceItem.objects.filter(hsn__startswith=filters_by):
+          id=request.session.get('staff_id')
+          staff=staff_details.objects.get(id=id)
+          if SalesInvoiceItem.objects.filter(staff=id,hsn__startswith=filters_by).exists:
+            sale_data=SalesInvoiceItem.objects.filter(staff=id,hsn__startswith=filters_by)
+            
+            paid = unpaid = total=0
+            for i in sale_data:
+              paid +=float(i.paidoff)
+              unpaid +=float(i.totalbalance)
+              total +=float(i.grandtotal)
+            content={
+            'bill':sale_data,
+            
+            'staff':staff,
+            'paid':paid,
+            'unpaid':unpaid,
+            'total':total
+            }
+            template_path = 'company/share_salehsn_report_mail.html'
+            template = get_template(template_path)
+
+            html  = template.render(content)
+            result = BytesIO()
+            pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+            pdf = result.getvalue()
+            filename = f'Sale Report.pdf'
+            email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+            email.attach(filename, pdf, "application/pdf")
+            email.send(fail_silently=False)
+            messages.info(request,'sale report shared via mail')
+            return redirect('sales_summary')
+          #grandtotal --------------------------    
+        if SalesInvoice.objects.filter(grandtotal__startswith=filters_by):
+          id=request.session.get('staff_id')
+          staff=staff_details.objects.get(id=id)
+          if SalesInvoice.objects.filter(staff=id,grandtotal__startswith=filters_by).exists:
+            sale_data=SalesInvoice.objects.filter(staff=id,grandtotal__startswith=filters_by)
+            
+            paid = unpaid = total=0
+            for i in sale_data:
+              paid +=float(i.paidoff)
+              unpaid +=float(i.totalbalance)
+              total +=float(i.grandtotal)
+            content={
+            'bill':sale_data,
+            
+            'staff':staff,
+            'paid':paid,
+            'unpaid':unpaid,
+            'total':total
+            }
+            template_path = 'company/share_salehsn_report_mail.html'
+            template = get_template(template_path)
+
+            html  = template.render(content)
+            result = BytesIO()
+            pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+            pdf = result.getvalue()
+            filename = f'Sale Report.pdf'
+            email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+            email.attach(filename, pdf, "application/pdf")
+            email.send(fail_silently=False)
+            messages.info(request,'sale report shared via mail')
+            return redirect('sales_summary')    
+          #total value--------------------------  
+        if SalesInvoiceItem.objects.filter(totalamount__startswith=filters_by):
+          id=request.session.get('staff_id')
+          staff=staff_details.objects.get(id=id)
+          if SalesInvoiceItem.objects.filter(staff=id,totalamount__startswith=filters_by).exists:
+            sale_data=SalesInvoice.objects.filter(staff=id,balance__startswith=filters_by)
+            
+            paid = unpaid = total=0
+            for i in sale_data:
+              paid +=float(i.paidoff)
+              unpaid +=float(i.totalbalance)
+              total +=float(i.grandtotal)
+            content={
+              'bill':sale_data,
+              
+              'staff':staff,
+              'paid':paid,
+              'unpaid':unpaid,
+              'total':total
+              }
+            template_path = 'company/share_salehsn_report_mail.html'
+            template = get_template(template_path)
+
+            html  = template.render(content)
+            result = BytesIO()
+            pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+            pdf = result.getvalue()
+            filename = f'Sale Report.pdf'
+            email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+            email.attach(filename, pdf, "application/pdf")
+            email.send(fail_silently=False)
+            messages.info(request,'sale report shared via mail')
+            return redirect('sales_summary') 
+      if filters_by == '0' or filters_by =='0' or filters_by =='0' or filters_by =='0':
+        id=request.session.get('staff_id')
+        staff=staff_details.objects.get(id=id)
+        if SalesInvoiceItem.objects.filter(staff=id).exists:
+          sale_data=SalesInvoiceItem.objects.filter(staff=id)
+          paid = unpaid = total=0
+          for i in sale_data:
+            paid +=float(i.paidoff)
+            unpaid +=float(i.totalbalance)
+            total +=float(i.grandtotal)
+          content={
+            'bill':sale_data,
+            'staff':staff,
+            'paid':paid,
+            'unpaid':unpaid,
+            'total':total
+            }
+          template_path = 'company/share_salehsn_report_mail.html'
+          template = get_template(template_path)
+
+          html  = template.render(content)
+          result = BytesIO()
+          pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+          pdf = result.getvalue()
+          filename = f'Sale Report.pdf'
+          email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+          email.attach(filename, pdf, "application/pdf")
+          email.send(fail_silently=False)
+          messages.info(request,'sale report shared via mail')
+          return redirect('sales_summary')  
+    if search == '' or filters_by == '' or from_date_str == '' or To_date_str == '' :
+      id=request.session.get('staff_id')
+      staff=staff_details.objects.get(id=id)
+      sale_data=SalesInvoiceItem.objects.filter(company=staff.company)
+      print(id,'a')
+      ttotal = sum(item.totalamount for item in sale_data)
+      paid = unpaid = total=0
+      c=0
+      for i in sale_data:
+        c=c+1
+        paid +=float(i.salesinvoice.paidoff)
+        unpaid +=float(i.salesinvoice.totalbalance)
+        total +=float(i.salesinvoice.grandtotal)
+      content={
+        'bill':sale_data,
+        'c':c,
+        'ttotal':ttotal,
+        'staff':staff,
+        'paid':paid,
+        'unpaid':unpaid,
+        'total':total
+      }
+      template_path = 'company/share_salehsn_report_mail.html'
+      template = get_template(template_path)
+      html  = template.render(content)
+      result = BytesIO()
+      pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+      pdf = result.getvalue()
+      filename = f'Sale summary hsn Report.pdf'
+      email = EmailMessage(mess,from_email=settings.EMAIL_HOST_USER,to=emails)
+      email.attach(filename, pdf, "application/pdf")
+      email.send(fail_silently=False)
+      messages.info(request,'sale summary by HSN shared via mail')
+      return redirect('sales_summary') 
+  return redirect('sales_summary') 
+  
+  
+# created by Muhammed Jaseem>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+def cashflow_report(request):
+    id=request.session.get('staff_id')
+    staff = get_object_or_404(staff_details, id=id)
+    cmp = get_object_or_404(company, id=staff.company.id)
+    allmodules = get_object_or_404(modules_list, company=cmp, status='New')
+    cash = cash_in_hand.objects.filter(company=cmp)
+    bnk = BankTransactionModel.objects.filter(company=cmp).filter(Q(type__iexact='cash withdraw') | Q(type__iexact='cash deposit'))
+    bill = PurchaseBill.objects.filter(company=cmp, pay_method__iexact='Cash', advance__gt=0)
+    
+    porder = PurchaseOrder.objects.filter(pay_method__iexact='Cash', company=cmp,advance__gt=0)
+    pdebt = purchasedebit.objects.filter(payment_type__iexact='Cash', company=cmp,paid_amount__gt=0)
+    paymentouts = PaymentOut.objects.filter(pay_method__iexact='cash', company=cmp)
+    sinv = SalesInvoice.objects.filter(paymenttype__iexact='Cash', company=cmp, paidoff__gt=0)
+    spin = PaymentIn.objects.filter(payment_method__iexact='Cash', company=cmp,payment_received__gt=0)
+    sorder = salesorder.objects.filter(payment_method__iexact='Cash', comp=cmp,paid__gt=0)
+    scredit = CreditNote.objects.filter(pay_method__iexact='Cash', company=cmp,advance__gt=0)
+    exp = Expense.objects.filter(payment_type__iexact='Cash', staff_id__company=cmp,paid__gt=0)
+    loan = LoanAccounts.objects.filter(loan_received__iexact='Cash', company=cmp,loan_amount__gt=0)
+    loanadd = TransactionTable.objects.filter(loan_received__iexact='cash', company=cmp,payment__gt=0)
+    lrepay = TransactionTable.objects.filter(loan_received__iexact='CASH', company=cmp,payment__gt=0)
+    
+    
+    # cash_in = 0  
+
+    # for c in cashinhand:
+
+    #  if c.cash_adjust == 'ADD CASH':
+    #     cash_in += int(c.cash_cash)
+   
+    # for s in sales:
+    #   try:
+    #     cash_in += int(float(s.paidoff))
+    #   except ValueError:
+    #    cash_in += 0 
+
+
+
+    # cash_out=0
+    
+    # for c in cashinhand:
+    #   if c.cash_adjust == 'REDUCE CASH':
+    #     cash_out += int(c.cash_cash)
+    
+    # for p in purchase:
+    #   cash_out += int(p.grandtotal)
+    
+    # balance=cash_in-cash_out
+    
+    
+    context = {'staff': staff, 'allmodules': allmodules, 'cash': cash, 'bill': bill, 'porder': porder,
+               'pdebt': pdebt, 'sinv': sinv, 'spin': spin, 'sorder': sorder, 'scredit': scredit, 'exp': exp,
+               'loan': loan, 'loanadd': loanadd, 'lrepay': lrepay, 'paymentouts': paymentouts,'bnk':bnk}
+    return render(request, 'company/cash-flow-report.html', context)
+
+def send_cash_flow_report_via_mail(request):
+    if request.method == 'POST':
+      email = request.POST.get('email')
+      message = request.POST.get('message')
+      cashout = request.POST.get('cashout')
+      total = request.POST.get('total')
+      cashin = request.POST.get('cashin')
+      table_content = request.POST.get('table_content')
+      # Preprocess the table content
+      rows = table_content.strip().split('\n')
+      cleaned_content = table_content.replace('\r\n', '\n').replace('\r', '\n')
+
+      # Split into rows and filter out any empty rows
+      rows = [row.strip() for row in cleaned_content.split('\n') if row.strip()]
+
+      # Split each row by comma
+      table_data = [row.split(',') for row in rows]
+
+      response = ''
+
+      # for sub_array in table_data:
+      #     for item in sub_array:
+      #         response += item + '***'
+      #     response += '<br>'
+      # return HttpResponse(response)
+
+
+      # Create HTML content for the PDF
+      template_path = 'company/cashflow_report.html'
+      template = get_template(template_path)
+      content = {
+            'email': email,
+            'message': message,
+            'table_data': table_data,
+            'cashin': cashin,
+            'cashout': cashout,
+            'total': total,
+        }
+      # return render(request, template_path, content)
+      html = template.render(content)
+
+      # Generate PDF
+      result = BytesIO()
+      pdf = pisa.pisaDocument(BytesIO(html.encode("utf-8")), result)
+      pdf = result.getvalue()
+      filename = 'Cash Flow Report.pdf'
+
+      # Send email with PDF attachment
+      email_message = EmailMessage(
+          subject='Cash Flow Report',
+          body=message,
+          from_email=settings.EMAIL_HOST_USER,
+          to=[email]
+      )
+      email_message.attach(filename, pdf, 'application/pdf')
+      email_message.send(fail_silently=False)
+
+      messages.info(request, 'Cash Flow report shared via mail')
+      return redirect('cashflow_report')
+        
+  
+  #if search input
+  
+    # if search:
+    #   if PurchaseBill.objects.filter(billdate__startswith=search):
+    #     id=request.session.get('staff_id')
+    #     staff=staff_details.objects.get(id=id)
+    #     if PurchaseBill.objects.filter(staff=id,billdate__startswith=search).exists:
+    #         purchase_data=PurchaseBill.objects.filter(staff=id,billdate__startswith=search)
+    #         debit_data=purchasedebit.objects.filter(staff=id,billdate__startswith=search)
+
+def outstanding_payables(request):
+    if 'staff_id' in request.session:
+        if request.session.has_key('staff_id'):
+            staff_id = request.session['staff_id']
+        else:
+            return redirect('/')
+    
+    staff = staff_details.objects.get(id=staff_id)
+    company_instance = company.objects.get(id=staff.company.id)
+    salesinvoices = PurchaseBill.objects.filter(company=company_instance)
+    allmodules = modules_list.objects.get(company=staff.company, status='New')
+
+    # Get date filter values from the request
+    from_date = request.GET.get('from_date')
+    to_date = request.GET.get('to_date')
+
+    if from_date and to_date:
+        salesinvoices = salesinvoices.filter(billdate__range=[from_date, to_date])
+
+    # Aggregate data
+    outstanding_data = {}
+    for invoice in salesinvoices:
+        if float(invoice.balance) == 0:
+            continue  # Skip invoices with a zero balance
+        if invoice.party.party_name not in outstanding_data:
+            outstanding_data[invoice.party.party_name] = {
+                'balance_amount': 0.0,  # Initialize as a float
+                'invoice_count': 0,
+                'invoices': []
+            }
+        outstanding_data[invoice.party.party_name]['balance_amount'] += float(invoice.balance)
+        outstanding_data[invoice.party.party_name]['invoice_count'] += 1
+        outstanding_data[invoice.party.party_name]['invoices'].append(invoice)
+
+    context = {
+        'staff': staff,
+        'outstanding_data': outstanding_data,
+        'allmodules': allmodules,
+        'from_date': from_date,
+        'to_date': to_date,
+    }
+    return render(request, 'company/outstanding_payables.html', context)
+
+
+def send_report_via_mail(request):
+    if request.method == 'GET':
+        from_date = request.GET.get('from_date')
+        to_date = request.GET.get('to_date')
+        search = request.GET.get('search_input')
+        emails_string = request.GET.get('email_ids')
+        emails = [email.strip() for email in emails_string.split(',')]
+        mess = request.GET.get('email_message')
+        id = request.session.get('staff_id')
+        staff = staff_details.objects.get(id=id)
+
+        salesinvoices = PurchaseBill.objects.filter(staff_id__company=staff.company).order_by('id')
+        if from_date and to_date:
+            salesinvoices = salesinvoices.filter(billdate__range=[from_date, to_date])
+        if search:
+            salesinvoices = salesinvoices.filter(
+                Q(invoice_no__icontains=search) |
+                Q(party__party_name__icontains=search)
+            )
+        
+        outstanding_data = {}
+        for invoice in salesinvoices:
+            if float(invoice.balance) == 0:
+                continue  # Skip invoices with a zero balance
+            if invoice.party.party_name not in outstanding_data:
+                outstanding_data[invoice.party.party_name] = {
+                    'balance_amount': 0.0,  # Initialize as a float
+                    'invoice_count': 0,
+                    'invoices': []
+                }
+            outstanding_data[invoice.party.party_name]['balance_amount'] += float(invoice.balance)
+            outstanding_data[invoice.party.party_name]['invoice_count'] += 1
+            outstanding_data[invoice.party.party_name]['invoices'].append(invoice)
+
+        content = {
+            'staff': staff,
+            'outstanding_data': outstanding_data,
+            'from_date': from_date,
+            'to_date': to_date,
+        }
+        
+        template_path = 'company/share_outstanding_report_mail.html'
+        template = get_template(template_path)
+        html = template.render(content)
+        result = BytesIO()
+        pdf = pisa.pisaDocument(BytesIO(html.encode("ISO-8859-1")), result)
+        pdf = result.getvalue()
+        filename = f'Outstanding Payables Report.pdf'
+        subject = f"Sharing Outstanding Payables Report"
+        email = EmailMessage(
+            subject,
+            f"Hi,\nPlease find the attached Outstanding Payables Report. \n{mess}\n\n--\nRegards,\n{staff.company.company_name}\n{staff.company.address}\n{staff.company.state} - {staff.company.pincode}",
+            from_email=settings.EMAIL_HOST_USER,
+            to=emails
+        )
+        email.attach(filename, pdf, "application/pdf")
+        email.send(fail_silently=False)
+        message = 'Report has been shared via email successfully..!'
+        return JsonResponse({'message': message})
+    else:
+        message = 'Report cannot be sent..!'
+        return JsonResponse({'message': message})
+        
+def check_module_status(request):
+    try:
+        staff_id = request.session['staff_id']
+        staff = staff_details.objects.get(id=staff_id)
+        pending_module = modules_list.objects.filter(company=staff.company.id, status='Pending').order_by('?').first()
+        module_status = pending_module.status if pending_module else ""
+        print(module_status)
+        return JsonResponse({'module_status': module_status})
+    except modules_list.DoesNotExist:
+        print("No pending modules found.")
+        return JsonResponse({'module_status': ""})
+
+def check_term_status(request):
+  try:
+    staff_id = request.session['staff_id']
+    staff = staff_details.objects.get(id=staff_id)
+    pending_module = Admin_Notification.objects.filter(company_id=staff.company.id, PaymentTerms_updation__isnull =False, status='New').earliest('id')
+    term_status = pending_module.status if pending_module else ""
+    print(term_status)
+    return JsonResponse({'term_status': term_status})
+  except Admin_Notification.DoesNotExist:
+    print("No pending modules found.")
+    return JsonResponse({'term_status': ""})
+
+def Term_Extension(request):
+  sid = request.session.get('staff_id')
+  staff =  staff_details.objects.get(id=sid)
+  allmodules= modules_list.objects.get(company=staff.company,status='New')
+  terms=payment_terms.objects.all()
+  context = {
+      'staff' : staff,
+      'allmodules':allmodules,
+      'terms':terms
+    }
+  return render(request,'company/term_extension.html',context)
+
+
+def Intrested_Company(request):
+  staff_id = request.session['staff_id']
+  staff =  staff_details.objects.get(id = staff_id)
+
+  com =  company.objects.get(user_id =request.user.id)
+
+
+  if request.method == 'POST':
+    term = request.POST['payment_term']
+    if Payment_Terms_updation.objects.filter(company_id=com,user_Id = request.user,status= "New"):
+       Payment_Terms_updation.objects.filter(company_id=com,user_Id = request.user,status= "New").delete()
+    pay = payment_terms.objects.get(id=term)
+
+    pay = Payment_Terms_updation(company_id=com,user_Id = request.user,Payment_Term = pay)
+    pay.save()   
+
+    if modules_list.objects.filter(company=com.id, status='Pending'):
+       modules_list.objects.filter(company=com.id, status='Pending').delete()
+
+    c1=request.POST.get('c1')
+    c2=request.POST.get('c2')
+    c3=request.POST.get('c3')
+    c4=request.POST.get('c4')
+    c5=request.POST.get('c5')
+    c6=request.POST.get('c6')
+    c7=request.POST.get('c7')
+    c8=request.POST.get('c8')
+    c9=request.POST.get('c9')
+    c10=request.POST.get('c10')
+    c11=request.POST.get('c11')
+    c12=request.POST.get('c12')
+    c13=request.POST.get('c13')
+    c14=request.POST.get('c14')
+    c15=request.POST.get('c15')
+
+    # mod_list1 = modules_list.objects.filter(company=com.id, status='Pending', update_action=1).latest('id')
+
+    mod_list1 = modules_list(
+        company=com,
+        sales_invoice=c1,
+        Estimate=c2,
+        Payment_in=c3,
+        sales_order=c4,
+        Delivery_challan=c5,
+        sales_return=c6,
+        Purchase_bills=c7,
+        Payment_out=c8,
+        Purchase_order=c9,
+        Purchase_return=c10,
+        Bank_account=c11,
+        Cash_in_hand=c12,
+        cheques=c13,
+        Loan_account=c14,
+        Upi=c15,
+        status='Pending'
+    )
+    mod_list1.save()
+
+    # modules_list.objects.filter(company=com.id, status='Pending').update(update_action=1)
+
+
+    if com.reg_action == 'self':
+      existing_notifications = Admin_Notification.objects.filter(
+          Q(company_id=com, PaymentTerms_updation__isnull=False) |
+          Q(company_id=com, Modules_List__isnull=False) |
+          Q(company_id=com, Modules_List__isnull=False, PaymentTerms_updation__isnull=False, status='New')
+      )
+      existing_notifications.delete()
+
+      noti = Admin_Notification(
+          company_id=com,
+          user_Id=request.user,
+          PaymentTerms_updation=pay,
+          Modules_List=mod_list1,
+          Title="Extend Payment Terms",
+          Discription=com.company_name + " request for Payment Terms extension"
+      )
+      noti.save()
+      com.Trial_Feedback = 'Interest'
+      com.save()
+
+    else:
+      existing_notifications = Admin_Notification.objects.filter(
+          Q(company_id=com, PaymentTerms_updation__isnull=False) |
+          Q(company_id=com, Modules_List__isnull=False) |
+          Q(company_id=com, Modules_List_isnull=False, PaymentTerms_updation_isnull=False, status='New')
+      )
+      existing_notifications.delete()
+
+      noti = Admin_Notification(
+          company_id=com,
+          user_Id=request.user,
+          PaymentTerms_updation=pay,
+          Modules_List=mod_list1,
+          Title="Extend Payment Terms",
+          Discription=com.company_name + " request for Payment Terms extension"
+      )
+      noti.save()
+      com.Trial_Feedback = 'Interest'
+      com.save()
+
+
+    staff.company.Trial_Feedback = 'Intrest'
+    staff.company.save()
+    notif = Company_Notification.objects.filter(company_id = staff.company)
+    for n in notif:
+      n.status = 'Old'
+      n.save()
+
+    return redirect('homepage')
+  return redirect('com_notification')
+def clients(request):
+  data= Admin_Notification.objects.filter(status='New',
+                                          Modules_List__isnull=False,
+                                          PaymentTerms_updation__isnull=False,).first()
+  print(data)
+  return render(request,'admin/clients.html',{'data':data})
+  
+
+def Admin_Accept_term_and_module(request,id):
+  data= Admin_Notification.objects.get(id=id)
+  comp = company.objects.get(id=data.company_id.id)
+
+  if data.distributor_id:
+    distr = Distributors_details.objects.get(id=data.distributor_id.id)
+    distr.payment_term = data.PaymentTerms_updation.Payment_Term
+
+    start_date=date.today()
+    days=int(data.PaymentTerms_updation.Payment_Term.days)
+
+    end= date.today() + timedelta(days=days)
+    distr.End_date=end
+
+    distr.save()
+    n = Distributor_Notification.objects.filter(distributor_id= data.distributor_id)  
+    for i in n:
+      if i.company_id:
+          print(i)
+      else: 
+          i.status = 'old'
+          i.save()
+  else:
+    # d = company.objects.get(id=data.company_id.id)
+    comp.dateperiod = data.PaymentTerms_updation.Payment_Term
+    start_date=date.today()
+    days=int(data.PaymentTerms_updation.Payment_Term.days)
+
+    end= date.today() + timedelta(days=days)
+    comp.End_date=end
+    comp.save()
+
+  data.status ='old'  
+  data.save()
+  
+  old=modules_list.objects.get(company=comp.id,status='New')
+  old.delete()
+  mod=modules_list.objects.get(company=comp.id,status='Pending')  
+  mod.status='New'
+  mod.save()
+  data1=modules_list.objects.filter(company=comp.id).update(update_action=0)
+  return redirect('adminhome')
+
+def Admin_Reject_term_and_module(request,id):
+
+  data= Admin_Notification.objects.get(id=id)
+  data.PaymentTerms_updation.delete()
+  data.Modules_List.delete()
+  data.delete()
+  return redirect('adminhome')
+
+def updates_admin(request):
+  term_data= Admin_Notification.objects.filter( status='New', 
+                                                Modules_List__isnull=False, 
+                                                PaymentTerms_updation__isnull=False)
+  pay_term = Admin_Notification.objects.filter(  status='New',
+                                                Modules_List__isnull=True,
+                                                PaymentTerms_updation__isnull=False)
+  module = Admin_Notification.objects.filter( status='New',
+                                              Modules_List__isnull=False,
+                                              PaymentTerms_updation__isnull=True)
+
+  context = { 'term_data' : term_data,
+              'pay_term' : pay_term,
+              'module' : module,
+            }
+  return render(request, 'admin/admin_update.html', context)
+
+
+def list_admin_notification(request, num):
+
+  if num == 1:
+    data= Admin_Notification.objects.filter( status='New', 
+                                                Modules_List__isnull=False, 
+                                                PaymentTerms_updation__isnull=False)
+  elif num == 2:
+    data = Admin_Notification.objects.filter(  status='New',
+                                                Modules_List__isnull=False,
+                                                PaymentTerms_updation__isnull=True)
+  elif num == 3:
+    data = Admin_Notification.objects.filter( status='New',
+                                              Modules_List__isnull=True,
+                                              PaymentTerms_updation__isnull=False)
+
+  context = { 'data' :data, }
+                
+  return render(request, 'admin/list_admin_notifications.html', context)
+
+
+
+

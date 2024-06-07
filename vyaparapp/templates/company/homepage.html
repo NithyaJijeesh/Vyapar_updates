@@ -14,7 +14,7 @@
         {% if staff.position == 'company' %}
           {% if notification  %}
             <div class="alert alert-danger d-flex" role="alert">
-              <b><b>🚀 Upgrade Available, &nbsp; </b></b>
+              <b><b>🚀 Payment term end on {{staff.company.End_date}}, &nbsp; </b></b>
               <a href="{% url 'com_notification' %}" class="alert-link">  click the link</a>&nbsp; <b> to extend your payment term.</b>
             </div>
           {% endif %}
